@@ -313,7 +313,21 @@ const PLAYERS_COLLECTION = 'WnbaPlayerStats';
 // job run populates it — nothing else to change.
 export const STAT_TEAMS = {
   wnba: [
-    { id: '20', abbr: 'ATL', name: 'Atlanta Dream' }
+    { id: '20',     abbr: 'ATL', name: 'Atlanta Dream' },
+    { id: '19',     abbr: 'CHI', name: 'Chicago Sky' },
+    { id: '18',     abbr: 'CON', name: 'Connecticut Sun' },
+    { id: '3',      abbr: 'DAL', name: 'Dallas Wings' },
+    { id: '129689', abbr: 'GS',  name: 'Golden State Valkyries' },
+    { id: '5',      abbr: 'IND', name: 'Indiana Fever' },
+    { id: '17',     abbr: 'LV',  name: 'Las Vegas Aces' },
+    { id: '6',      abbr: 'LA',  name: 'Los Angeles Sparks' },
+    { id: '8',      abbr: 'MIN', name: 'Minnesota Lynx' },
+    { id: '9',      abbr: 'NY',  name: 'New York Liberty' },
+    { id: '11',     abbr: 'PHX', name: 'Phoenix Mercury' },
+    { id: '132052', abbr: 'POR', name: 'Portland Fire' },
+    { id: '14',     abbr: 'SEA', name: 'Seattle Storm' },
+    { id: '131935', abbr: 'TOR', name: 'Toronto Tempo' },
+    { id: '16',     abbr: 'WSH', name: 'Washington Mystics' }
   ]
 };
 
