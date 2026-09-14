@@ -1,0 +1,193 @@
+<title>Dream Roster Board</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anton&family=Barlow:wght@400;500;600;700&display=swap">
+<style>
+  :root{
+    --ink:#14101c;          /* court-side broadcast ground */
+    --panel:#1d1728;
+    --panel-2:#241c31;
+    --line:#372c49;
+    --text:#f3edf5;
+    --muted:#a297b4;
+    --pink:#f0559d;         /* WSEC shield pink */
+    --gold:#d9a441;         /* WSEC shield gold */
+    --pink-deep:#c23579;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0;background:var(--ink);color:var(--text);
+    font-family:'Barlow',system-ui,sans-serif;font-size:15px;line-height:1.45;
+    padding-block:0 48px;padding-inline:clamp(16px,4vw,40px);
+  }
+  a{color:var(--pink)}
+  .wrap{max-width:1060px;margin:0 auto}
+
+  /* ---------- masthead ---------- */
+  header{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;padding-block:34px 6px}
+  .kicker{font-family:'Barlow';font-weight:700;font-size:12px;letter-spacing:.18em;text-transform:uppercase;color:var(--gold)}
+  h1{font-family:'Anton',Impact,sans-serif;font-weight:400;font-size:clamp(34px,6vw,56px);
+     letter-spacing:.01em;margin:0;line-height:1.02;text-wrap:balance}
+  h1 .accent{color:var(--pink)}
+  .season-tag{margin-left:auto;font-size:13px;color:var(--muted)}
+  .season-tag b{color:var(--text);font-weight:600}
+
+  /* ---------- leaders ---------- */
+  .leaders{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-block:22px 30px}
+  @media(max-width:720px){.leaders{grid-template-columns:1fr}}
+  .leader{
+    background:linear-gradient(160deg,var(--panel-2),var(--panel));
+    border:1px solid var(--line);border-radius:10px;padding:16px 18px;
+    display:grid;grid-template-columns:64px 1fr;gap:14px;align-items:center;position:relative;overflow:hidden;
+  }
+  .leader::after{content:attr(data-cat);position:absolute;top:12px;right:14px;
+    font-weight:700;font-size:11px;letter-spacing:.16em;color:var(--gold)}
+  .crest{width:64px;height:64px;border-radius:50%;background:var(--pink-deep);
+    display:grid;place-items:center;font-family:'Anton';font-size:22px;color:#fff;position:relative;flex:none}
+  .crest img{position:absolute;inset:0;width:100%;height:100%;border-radius:50%;object-fit:cover;object-position:top;
+    opacity:0;background:var(--panel-2)}
+  .crest img.ok{opacity:1}
+  .leader .who{min-width:0}
+  .leader .name{font-weight:700;font-size:17px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .leader .pos{color:var(--muted);font-size:12.5px}
+  .leader .big{font-family:'Anton';font-size:34px;color:var(--pink);line-height:1;margin-top:4px}
+  .leader .big small{font-family:'Barlow';font-weight:600;font-size:12px;color:var(--muted);letter-spacing:.08em;margin-left:6px}
+
+  /* ---------- controls ---------- */
+  .bar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:10px}
+  .bar h2{font-family:'Anton';font-weight:400;font-size:20px;letter-spacing:.03em;margin:0}
+  .toggle{margin-left:auto;display:flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+  .toggle button{
+    background:none;border:0;color:var(--muted);font:inherit;font-weight:600;
+    padding:7px 16px;cursor:pointer
+  }
+  .toggle button[aria-pressed="true"]{background:var(--pink);color:#fff}
+  .toggle button:focus-visible{outline:2px solid var(--gold);outline-offset:-2px}
+  .hint{font-size:12.5px;color:var(--muted)}
+
+  /* ---------- table ---------- */
+  .tblwrap{overflow-x:auto;border:1px solid var(--line);border-radius:10px;background:var(--panel)}
+  table{border-collapse:collapse;width:100%;min-width:840px;font-variant-numeric:tabular-nums}
+  thead th{
+    position:sticky;top:0;background:var(--panel-2);color:var(--muted);
+    font-size:11.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;
+    padding:10px 10px;text-align:right;cursor:pointer;user-select:none;white-space:nowrap;border-bottom:1px solid var(--line)
+  }
+  thead th:first-child{text-align:left;padding-left:16px}
+  thead th[aria-sort]{color:var(--gold)}
+  thead th[aria-sort]::after{content:' ▾'}
+  thead th[aria-sort="ascending"]::after{content:' ▴'}
+  tbody td{padding:9px 10px;text-align:right;border-bottom:1px solid #2a2138;font-weight:500}
+  tbody tr:last-child td{border-bottom:0}
+  tbody tr:hover{background:#261e35}
+  td.player{text-align:left;padding-left:16px;display:flex;align-items:center;gap:10px;min-width:210px}
+  td.player .mini{width:30px;height:30px;border-radius:50%;background:var(--pink-deep);flex:none;
+    display:grid;place-items:center;font-family:'Anton';font-size:12px;color:#fff;position:relative}
+  td.player .mini img{position:absolute;inset:0;width:100%;height:100%;border-radius:50%;object-fit:cover;object-position:top;opacity:0}
+  td.player .mini img.ok{opacity:1}
+  td.player .nm{font-weight:600;white-space:nowrap}
+  td.player .jp{color:var(--muted);font-size:12px;white-space:nowrap}
+  td.hi{color:var(--pink);font-weight:700}
+  footer{margin-top:14px;font-size:12px;color:var(--muted)}
+</style>
+
+<div class="wrap">
+  <header>
+    <div>
+      <div class="kicker">WomensSEC · WNBA</div>
+      <h1>Atlanta <span class="accent">Dream</span> Roster</h1>
+    </div>
+    <div class="season-tag">2026 Regular Season · <b id="nplayers"></b> players</div>
+  </header>
+
+  <section class="leaders" id="leaders" aria-label="Team leaders"></section>
+
+  <div class="bar">
+    <h2>PLAYER AVERAGES</h2>
+    <span class="hint">click a column to sort</span>
+    <div class="toggle" role="group" aria-label="Stat split">
+      <button id="btnSeason" aria-pressed="true">Season</button>
+      <button id="btnCareer" aria-pressed="false">Career</button>
+    </div>
+  </div>
+
+  <div class="tblwrap">
+    <table id="tbl" aria-label="Atlanta Dream player statistics">
+      <thead><tr id="headrow"></tr></thead>
+      <tbody id="body"></tbody>
+    </table>
+  </div>
+
+  <footer>Stats: ESPN public data, refreshed hourly on womenssec.com · Layout reference for the Wix roster page — table maps 1:1 to the WnbaPlayerStats collection.</footer>
+</div>
+
+<script>
+const PLAYERS = [{"name": "DeWanna Bonner", "jersey": "24", "position": "F", "headshot": "https://a.espncdn.com/i/headshots/wnba/players/full/869.png", "gp": 38.0, "minutes": 27.3, "pts": 10.5, "reb": 6.0, "ast": 1.6, "stl": 1.2, "blk": 0.8, "turnovers": 0.8, "fgPct": 39.7, "threePct": 26.3, "ftPct": 84.8, "career_gp": 573.0, "career_minutes": 29.8, "career_pts": 14.3, "career_reb": 6.0, "career_ast": 2.2, "career_stl": 1.2, "career_blk": 0.7, "career_turnovers": 1.5, "career_fgPct": 41.5, "career_threePct": 30.2, "career_ftPct": 85.7}, {"name": "Isobel Borlase", "jersey": "20", "position": "G", "headshot": "https://a.espncdn.com/i/headshots/wnba/players/full/5208983.png", "gp": 40.0, "minutes": 12.9, "pts": 4.6, "reb": 1.5, "ast": 1.0, "stl": 0.2, "blk": 0.1, "turnovers": 0.8, "fgPct": 41.5, "threePct": 30.6, "ftPct": 93.8, "career_gp": 40.0, "career_minutes": 12.9, "career_pts": 4.6, "career_reb": 1.5, "career_ast": 1.0, "career_stl": 0.2, "career_blk": 0.1, "career_turnovers": 0.8, "career_fgPct": 41.5, "career_threePct": 30.6, "career_ftPct": 93.8}, {"name": "Jordin Canada", "jersey": "3", "position": "G", "headshot": "https://a.espncdn.com/i/headshots/wnba/players/full/3142250.png", "gp": 39.0, "minutes": 31.5, "pts": 11.6, "reb": 3.7, "ast": 7.4, "stl": 1.9, "blk": 0.3, "turnovers": 2.6, "fgPct": 43.6, "threePct": 29.8, "ftPct": 76.6, "career_gp": 269.0, "career_minutes": 26.7, "career_pts": 9.6, "career_reb": 2.7, "career_ast": 5.3, "career_stl": 1.6, "career_blk": 0.2, "career_turnovers": 2.2, "career_fgPct": 39.9, "career_threePct": 26.3, "career_ftPct": 79.6}, {"name": "Allisha Gray", "jersey": "15", "position": "G", "headshot": "https://a.espncdn.com/i/headshots/wnba/players/full/3058901.png", "gp": 40.0, "minutes": 33.0, "pts": 19.3, "reb": 3.4, "ast": 2.6, "stl": 1.3, "blk": 0.4, "turnovers": 1.6, "fgPct": 46.1, "threePct": 33.5, "ftPct": 79.4, "career_gp": 340.0, "career_minutes": 30.9, "career_pts": 14.5, "career_reb": 4.4, "career_ast": 2.5, "career_stl": 1.2, "career_blk": 0.5, "career_turnovers": 1.5, "career_fgPct": 43.5, "career_threePct": 35.2, "career_ftPct": 81.1}, {"name": "Naz Hillmon", "jersey": "00", "position": "F", "headshot": "https://a.espncdn.com/i/headshots/wnba/players/full/4398915.png", "gp": 39.0, "minutes": 29.4, "pts": 9.1, "reb": 4.6, "ast": 1.5, "stl": 0.6, "blk": 0.4, "turnovers": 1.4, "fgPct": 47.0, "threePct": 30.2, "ftPct": 82.0, "career_gp": 197.0, "career_minutes": 22.1, "career_pts": 6.5, "career_reb": 4.8, "career_ast": 1.4, "career_stl": 0.5, "career_blk": 0.3, "career_turnovers": 1.1, "career_fgPct": 48.7, "career_threePct": 30.9, "career_ftPct": 81.5}, {"name": "Rhyne Howard", "jersey": "10", "position": "G", "headshot": "https://a.espncdn.com/i/headshots/wnba/players/full/4398674.png", "gp": 39.0, "minutes": 34.6, "pts": 18.3, "reb": 3.8, "ast": 3.6, "stl": 2.3, "blk": 0.9, "turnovers": 1.4, "fgPct": 41.0, "threePct": 36.7, "ftPct": 88.0, "career_gp": 175.0, "career_minutes": 33.5, "career_pts": 17.4, "career_reb": 4.4, "career_ast": 3.6, "career_stl": 1.7, "career_blk": 0.8, "career_turnovers": 1.7, "career_fgPct": 38.1, "career_threePct": 34.4, "career_ftPct": 81.9}, {"name": "Brionna Jones", "jersey": "42", "position": "F", "headshot": "https://a.espncdn.com/i/headshots/wnba/players/full/3058895.png", "gp": 9.0, "minutes": 16.9, "pts": 8.2, "reb": 5.6, "ast": 2.0, "stl": 0.3, "blk": 0.7, "turnovers": 1.0, "fgPct": 51.9, "threePct": 16.7, "ftPct": 90.5, "career_gp": 272.0, "career_minutes": 21.6, "career_pts": 10.4, "career_reb": 5.1, "career_ast": 1.3, "career_stl": 1.0, "career_blk": 0.5, "career_turnovers": 1.3, "career_fgPct": 54.9, "career_threePct": 22.2, "career_ftPct": 77.6}, {"name": "Sika Kone", "jersey": "23", "position": "F", "headshot": "https://a.espncdn.com/i/headshots/wnba/players/full/5017721.png", "gp": 32.0, "minutes": 5.0, "pts": 1.7, "reb": 1.0, "ast": 0.2, "stl": 0.1, "blk": 0.0, "turnovers": 0.3, "fgPct": 31.5, "threePct": 17.9, "ftPct": 71.4, "career_gp": 98.0, "career_minutes": 6.6, "career_pts": 2.7, "career_reb": 1.7, "career_ast": 0.3, "career_stl": 0.1, "career_blk": 0.0, "career_turnovers": 0.5, "career_fgPct": 41.1, "career_threePct": 26.1, "career_ftPct": 81.3}, {"name": "Indya Nivar", "jersey": "21", "position": "G", "headshot": "https://a.espncdn.com/i/headshots/wnba/players/full/5105740.png", "gp": 20.0, "minutes": 3.1, "pts": 0.9, "reb": 0.9, "ast": 0.4, "stl": 0.3, "blk": 0.1, "turnovers": 0.2, "fgPct": 38.9, "threePct": 66.7, "ftPct": 7.7, "career_gp": 20.0, "career_minutes": 3.1, "career_pts": 0.9, "career_reb": 0.9, "career_ast": 0.4, "career_stl": 0.3, "career_blk": 0.1, "career_turnovers": 0.2, "career_fgPct": 38.9, "career_threePct": 66.7, "career_ftPct": 7.7}, {"name": "Madina Okot", "jersey": "11", "position": "C", "headshot": "https://a.espncdn.com/i/headshots/wnba/players/full/5108587.png", "gp": 39.0, "minutes": 9.2, "pts": 5.4, "reb": 3.3, "ast": 0.3, "stl": 0.3, "blk": 0.3, "turnovers": 1.3, "fgPct": 57.6, "threePct": 12.5, "ftPct": 76.8, "career_gp": 39.0, "career_minutes": 9.2, "career_pts": 5.4, "career_reb": 3.3, "career_ast": 0.3, "career_stl": 0.3, "career_blk": 0.3, "career_turnovers": 1.3, "career_fgPct": 57.6, "career_threePct": 12.5, "career_ftPct": 76.8}, {"name": "Te-Hina Paopao", "jersey": "2", "position": "G", "headshot": "https://a.espncdn.com/i/headshots/wnba/players/full/4433431.png", "gp": 31.0, "minutes": 11.2, "pts": 3.6, "reb": 0.8, "ast": 1.4, "stl": 0.2, "blk": 0.1, "turnovers": 0.5, "fgPct": 33.9, "threePct": 35.6, "ftPct": 90.0, "career_gp": 74.0, "career_minutes": 14.4, "career_pts": 4.9, "career_reb": 1.3, "career_ast": 2.0, "career_stl": 0.4, "career_blk": 0.2, "career_turnovers": 0.8, "career_fgPct": 40.6, "career_threePct": 37.6, "career_ftPct": 69.6}, {"name": "Angel Reese", "jersey": "5", "position": "F", "headshot": "https://a.espncdn.com/i/headshots/wnba/players/full/4433402.png", "gp": 39.0, "minutes": 31.6, "pts": 16.1, "reb": 12.4, "ast": 2.8, "stl": 1.8, "blk": 0.7, "turnovers": 3.2, "fgPct": 43.7, "threePct": 18.0, "ftPct": 73.4, "career_gp": 103.0, "career_minutes": 31.9, "career_pts": 14.9, "career_reb": 12.7, "career_ast": 2.7, "career_stl": 1.6, "career_blk": 0.6, "career_turnovers": 3.1, "career_fgPct": 42.7, "career_threePct": 18.2, "career_ftPct": 74.1}, {"name": "Shatori Walker-Kimbrough", "jersey": "33", "position": "G", "headshot": "https://a.espncdn.com/i/headshots/wnba/players/full/3058893.png", "gp": 12.0, "minutes": 2.8, "pts": 1.1, "reb": 0.3, "ast": 0.5, "stl": 0.2, "blk": 0.0, "turnovers": 0.1, "fgPct": 57.1, "threePct": 100.0, "ftPct": 100.0, "career_gp": 286.0, "career_minutes": 16.8, "career_pts": 5.4, "career_reb": 1.4, "career_ast": 1.2, "career_stl": 0.7, "career_blk": 0.3, "career_turnovers": 0.8, "career_fgPct": 42.3, "career_threePct": 35.1, "career_ftPct": 88.3}];
+
+const COLS = [
+  {k:'name',  label:'Player', num:false},
+  {k:'gp',    label:'GP'}, {k:'minutes',label:'MIN'},
+  {k:'pts',   label:'PTS'}, {k:'reb',  label:'REB'}, {k:'ast', label:'AST'},
+  {k:'stl',   label:'STL'}, {k:'blk',  label:'BLK'}, {k:'turnovers',label:'TO'},
+  {k:'fgPct', label:'FG%'}, {k:'threePct',label:'3P%'}, {k:'ftPct',label:'FT%'}
+];
+let split='', sortKey='pts', sortDir=-1;   // ''=season, 'career_'=career
+
+const f=(v,int)=> v==null ? '—' : int ? String(Math.round(v)) : v.toFixed(1);
+const get=(p,k)=> k==='name' ? p.name : (p[split+k] ?? null);
+const initials=n=>n.split(/\s+/).map(w=>w[0]).slice(0,2).join('').toUpperCase();
+
+function crest(p,cls){
+  return `<span class="${cls}">${initials(p.name)}<img src="${p.headshot}" alt="" onload="this.classList.add('ok')" onerror="this.remove()"></span>`;
+}
+
+function leaders(){
+  const cats=[['PPG','pts'],['RPG','reb'],['APG','ast']];
+  document.getElementById('leaders').innerHTML = cats.map(([lab,k])=>{
+    const p=[...PLAYERS].sort((a,b)=>(b[k]||0)-(a[k]||0))[0];
+    return `<article class="leader" data-cat="${lab} LEADER">
+      ${crest(p,'crest')}
+      <div class="who">
+        <div class="name">${p.name}</div>
+        <div class="pos">#${p.jersey} · ${p.position} · ${f(p.gp,true)} GP</div>
+        <div class="big">${f(p[k])}<small>${lab}</small></div>
+      </div></article>`;
+  }).join('');
+}
+
+function head(){
+  document.getElementById('headrow').innerHTML = COLS.map(c=>
+    `<th data-k="${c.k}"${c.k===sortKey?` aria-sort="${sortDir<0?'descending':'ascending'}"`:''}>${c.label}</th>`).join('');
+}
+
+function render(){
+  head();
+  const rows=[...PLAYERS].sort((a,b)=>{
+    const av=get(a,sortKey), bv=get(b,sortKey);
+    if(sortKey==='name') return sortDir*String(av).localeCompare(bv);
+    return sortDir*((av??-1)-(bv??-1));
+  });
+  const maxes={};
+  for(const c of COLS) if(c.k!=='name'&&c.k!=='turnovers')
+    maxes[c.k]=Math.max(...PLAYERS.map(p=>get(p,c.k)??0));
+  document.getElementById('body').innerHTML = rows.map(p=>`<tr>
+    <td class="player">${crest(p,'mini')}<span class="nm">${p.name}</span><span class="jp">#${p.jersey} ${p.position}</span></td>
+    ${COLS.slice(1).map(c=>{
+      const v=get(p,c.k), top=v!=null&&maxes[c.k]!=null&&v===maxes[c.k]&&v>0;
+      return `<td${top?' class="hi"':''}>${f(v,c.k==='gp')}</td>`;
+    }).join('')}</tr>`).join('');
+}
+
+document.getElementById('headrow').addEventListener('click',e=>{
+  const th=e.target.closest('th'); if(!th) return;
+  const k=th.dataset.k;
+  if(k===sortKey) sortDir*=-1; else {sortKey=k; sortDir = k==='name'?1:-1;}
+  render();
+});
+const bs=document.getElementById('btnSeason'), bc=document.getElementById('btnCareer');
+function setSplit(s){split=s;
+  bs.setAttribute('aria-pressed',String(s==='')); bc.setAttribute('aria-pressed',String(s!==''));
+  render();}
+bs.onclick=()=>setSplit(''); bc.onclick=()=>setSplit('career_');
+
+document.getElementById('nplayers').textContent=PLAYERS.length;
+leaders(); render();
+</script>
