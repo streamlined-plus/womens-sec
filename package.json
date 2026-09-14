@@ -9,5 +9,8 @@
     "postinstall": "wix sync-types",
     "dev": "wix dev",
     "lint": "eslint ."
+  },
+  "dependencies": {
+    "@wix/site-seo": "^1.23.0"
   }
 }
