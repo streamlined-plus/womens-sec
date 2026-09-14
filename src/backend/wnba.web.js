@@ -11,7 +11,7 @@
  *************************************************************/
 
 import { Permissions, webMethod } from 'wix-web-module';
-import { cacheRead, apiScoreboard, getJson, LEAGUES, TTL, SITE_API, isLeague } from 'backend/wnbaCore';
+import { cacheRead, apiScoreboard, apiScoreboardWindow, getJson, LEAGUES, TTL, SITE_API, isLeague } from 'backend/wnbaCore';
 
 /* ============================================================
    4. PUBLIC WEB METHODS
@@ -34,13 +34,12 @@ export const getSchedule = webMethod(Permissions.Anyone, async (league = 'wnba',
   if (!isLeague(league)) throw new Error(`Unsupported league: ${league}`);
 
   const span = Math.min(Math.max(parseInt(days, 10) || 14, 1), 60);
-  const start = new Date();
-  const end = new Date(Date.now() + span * 86400000);
-  const ymd = d => d.toISOString().slice(0, 10).replace(/-/g, '');
-  const range = `${ymd(start)}-${ymd(end)}`;
+  const today = new Date().toISOString().slice(0, 10);
 
-  return cacheRead(`${league}:schedule:${range}`, TTL.SCHEDULE, async () => {
-    const board = await apiScoreboard(league, range);
+  // apiScoreboardWindow handles both fetch strategies: one range request for
+  // WNBA/NWSL, a per-day loop for the college endpoint (which rejects ranges).
+  return cacheRead(`${league}:schedule:${today}:${span}d`, TTL.SCHEDULE, async () => {
+    const board = await apiScoreboardWindow(league, span);
 
     // Group into days so the UI can render date headers directly.
     const byDay = new Map();

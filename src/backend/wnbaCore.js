@@ -28,7 +28,13 @@ const TIMEOUT_MS = 12000;
 export const LEAGUES = {
   wnba:  { path: 'basketball/wnba',                      label: 'WNBA'  },
   nwsl:  { path: 'soccer/usa.nwsl',                      label: 'NWSL'  },
-  ncaaw: { path: 'basketball/womens-college-basketball', label: 'NCAAW' }
+  // SEC women's basketball only. groups=23 is ESPN's SEC conference filter —
+  // verified live across 10 game days: every returned game involves an SEC
+  // team. noRange because this endpoint 404s on dates=YYYYMMDD-YYYYMMDD
+  // (also verified live); apiScoreboardWindow loops single days instead.
+  // windowDays kept short: 22 requests per sync run, ~2 games/day in season.
+  ncaaw: { path: 'basketball/womens-college-basketball', label: 'SEC WBB',
+           groups: '23', noRange: true, windowDays: 21 }
 };
 
 // These are the blueprint's ISR revalidate intervals, by volatility.
@@ -147,7 +153,10 @@ function normEvent(e) {
 
 export async function apiScoreboard(leagueKey, datesParam) {
   const lg = LEAGUES[leagueKey];
-  const qs = datesParam ? `?dates=${datesParam}` : '';
+  const parts = [];
+  if (datesParam) parts.push(`dates=${datesParam}`);
+  if (lg.groups) parts.push(`groups=${lg.groups}`);   // conference filter (SEC)
+  const qs = parts.length ? `?${parts.join('&')}` : '';
   const data = await getJson(`${SITE_API}/${lg.path}/scoreboard${qs}`);
   const season = (data.leagues && data.leagues[0] && data.leagues[0].season) || {};
   return {
@@ -156,6 +165,46 @@ export async function apiScoreboard(leagueKey, datesParam) {
     seasonYear: season.year || null,
     fetchedAt: new Date().toISOString(),
     games: (data.events || []).map(normEvent)
+  };
+}
+
+/**
+ * Fixtures for the next `days` days, whatever the endpoint supports.
+ * Range-capable leagues (WNBA, NWSL) cost one request. The college
+ * endpoint rejects ranges, so noRange leagues loop one request per day —
+ * an empty day returns 200 with zero events (verified), so no special
+ * handling. One failed day is skipped rather than failing the window.
+ */
+export async function apiScoreboardWindow(leagueKey, days) {
+  const lg = LEAGUES[leagueKey];
+  const ymd = d => d.toISOString().slice(0, 10).replace(/-/g, '');
+
+  if (!lg.noRange) {
+    const range = `${ymd(new Date())}-${ymd(new Date(Date.now() + days * 86400000))}`;
+    return apiScoreboard(leagueKey, range);
+  }
+
+  const seen = new Set();
+  const games = [];
+  let seasonYear = null;
+  for (let i = 0; i <= days; i++) {
+    const day = ymd(new Date(Date.now() + i * 86400000));
+    try {
+      const board = await apiScoreboard(leagueKey, day);
+      seasonYear = seasonYear || board.seasonYear;
+      for (const g of board.games) {
+        if (!seen.has(g.gameId)) { seen.add(g.gameId); games.push(g); }
+      }
+    } catch (err) {
+      console.warn(`[window] ${leagueKey} ${day} skipped: ${err.message}`);
+    }
+  }
+  return {
+    league: leagueKey,
+    leagueLabel: lg.label,
+    seasonYear,
+    fetchedAt: new Date().toISOString(),
+    games
   };
 }
 
@@ -168,11 +217,11 @@ export async function apiScoreboard(leagueKey, datesParam) {
 
 // Leagues the hourly job keeps fresh. Rows carry a `league` field, so each
 // league's page filters its own dataset (the /schedule dataset filters
-// league = wnba and never shows NWSL rows).
-// NCAAW is deliberately NOT here: ESPN's college endpoint rejects date-range
-// queries (404, verified live) and full-D1 volume needs its own sync strategy
-// — likely an SEC-only conference filter. Do not add 'ncaaw' without that.
-const ACTIVE_LEAGUES = ['wnba', 'nwsl'];
+// league = wnba and never shows nwsl/ncaaw rows).
+// ncaaw is SEC-ONLY by design (groups=23 in LEAGUES) — full D1 is hundreds
+// of games a week and would swamp this sync. Season starts in November, so
+// ncaaw legitimately writes 0 rows until then.
+const ACTIVE_LEAGUES = ['wnba', 'nwsl', 'ncaaw'];
 const GAMES_COLLECTION = 'WnbaGames';
 const SYNC_DAYS = 30;
 
@@ -205,9 +254,8 @@ function etParts(iso) {
  * reliably. The cache collection serves the app; this one serves search.
  */
 export async function syncGamesToCollection(league = 'wnba') {
-  const ymd = d => d.toISOString().slice(0, 10).replace(/-/g, '');
-  const range = `${ymd(new Date())}-${ymd(new Date(Date.now() + SYNC_DAYS * 86400000))}`;
-  const board = await apiScoreboard(league, range);
+  const windowDays = LEAGUES[league].windowDays || SYNC_DAYS;
+  const board = await apiScoreboardWindow(league, windowDays);
 
   const rows = board.games.filter(g => !isPlaceholder(g)).map(g => {
     const { dayEt, timeEt } = etParts(g.startUtc);
