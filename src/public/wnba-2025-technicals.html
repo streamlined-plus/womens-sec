@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Project Lato — WNBA 2025 Graph Visualization</title>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#060906;--bg2:#07110a;--glass:rgba(8,18,10,.68);--glass2:rgba(12,28,15,.76);--line:rgba(191,255,105,.12);
+  --t1:#f2f7e9;--t2:rgba(242,247,233,.68);--t3:rgba(242,247,233,.36);--t4:rgba(242,247,233,.16);
+  --green:#b8ff5a;--green2:#37ff8b;--mint:#77ffc4;--blue:#64d6ff;--gold:#ffcf56;--violet:#b891ff;
+  --tech:#ff5a5f;--flag:#ff9e42;--eject:#b891ff;--sus:#ff2c60;--intl:#22d3ee;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;width:100%;overflow:hidden;background:radial-gradient(circle at 50% 45%,#123018 0%,#08130b 38%,#040604 100%);color:var(--t1);font-family:Outfit,system-ui,-apple-system,Segoe UI,sans-serif;-webkit-font-smoothing:antialiased;user-select:none}
+body{cursor:grab} body:active{cursor:grabbing}
+#canvas{position:fixed;inset:0;width:100%;height:100%;z-index:1;display:block}
+#dom{position:fixed;inset:0;z-index:2;pointer-events:none;perspective:1100px;transform-style:preserve-3d}
+.vignette{position:fixed;inset:0;z-index:3;pointer-events:none;background:radial-gradient(circle at 50% 48%,transparent 0%,transparent 56%,rgba(0,0,0,.55) 100%)}
+.topbar{position:fixed;top:0;left:0;right:0;z-index:50;display:flex;align-items:flex-start;justify-content:space-between;padding:18px 26px 80px;background:linear-gradient(180deg,rgba(3,6,4,.9),rgba(3,6,4,0));pointer-events:none}
+.logo{pointer-events:auto}.logo-main{font-size:20px;font-weight:900;letter-spacing:-.03em}.dot{color:var(--green);font-size:25px}.sub{margin-top:3px;font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.16em;text-transform:uppercase;color:var(--t3)}
+.hud{pointer-events:auto;display:flex;gap:8px;align-items:center;font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--t3)}
+.hud-pill{border:1px solid var(--line);background:rgba(11,23,12,.55);backdrop-filter:blur(18px);border-radius:999px;padding:7px 11px}.hud strong{color:var(--green);font-weight:700}
+.pills{position:fixed;top:70px;left:50%;transform:translateX(-50%);z-index:55;display:flex;gap:4px;padding:5px;border-radius:16px;background:rgba(7,14,8,.76);border:1px solid var(--line);backdrop-filter:blur(22px);box-shadow:0 10px 40px rgba(0,0,0,.28);pointer-events:auto;max-width:calc(100vw - 20px);overflow:auto;scrollbar-width:none}.pills::-webkit-scrollbar{display:none}
+.pill{border:0;background:transparent;color:var(--t3);font:700 11px Outfit,sans-serif;letter-spacing:.03em;white-space:nowrap;border-radius:12px;padding:7px 13px;cursor:pointer;transition:.18s}.pill:hover{color:var(--t2);background:rgba(255,255,255,.04)}.pill.on{color:#061006;background:var(--green);box-shadow:0 0 22px rgba(184,255,90,.28)}
+.orb-caption{position:fixed;left:50%;bottom:26px;transform:translateX(-50%);z-index:25;text-align:center;pointer-events:none;color:var(--t3);font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.12em;text-transform:uppercase}.orb-caption b{color:var(--green);font-weight:700}
+.node{position:absolute;left:0;top:0;z-index:5;pointer-events:auto;display:flex;flex-direction:column;align-items:center;justify-content:center;will-change:transform,opacity;transition:opacity .16s,filter .16s;cursor:pointer}
+.node:hover{filter:brightness(1.28);z-index:9999!important}.node:hover .node-label{opacity:1;transform:translateY(0) scale(1)}
+.node-core{display:flex;align-items:center;justify-content:center;border-radius:50%;position:relative;box-shadow:0 0 20px rgba(184,255,90,.22), inset 0 0 16px rgba(255,255,255,.08);overflow:hidden;background:#112116;border:1px solid rgba(184,255,90,.32)}
+.player .node-core{width:48px;height:48px;border:2px solid var(--green);background-size:cover;background-position:center;box-shadow:0 0 22px rgba(184,255,90,.32), inset 0 0 12px rgba(255,255,255,.1)}
+.player.high .node-core{width:58px;height:58px;box-shadow:0 0 30px rgba(184,255,90,.46),0 0 54px rgba(55,255,139,.14)}
+.player.intl .node-core{border-color:var(--intl);box-shadow:0 0 24px rgba(34,211,238,.34)}
+.node-img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:.96}.node-initials{font-weight:900;font-size:13px;color:var(--green);letter-spacing:-.03em}.player .node-initials{background:rgba(6,16,8,.74);width:100%;height:100%;display:flex;align-items:center;justify-content:center}
+.team .node-core{width:42px;height:42px;border-color:rgba(100,214,255,.55);color:#fff;background:rgba(100,214,255,.18);font-weight:900;font-size:11px}.college .node-core{width:38px;height:38px;border-color:rgba(255,207,86,.58);background:rgba(255,207,86,.18);font-size:10px;font-weight:900}.coach .node-core{width:34px;height:34px;border-color:rgba(184,145,255,.6);background:rgba(184,145,255,.2);font-size:10px;font-weight:900}.country .node-core{width:38px;height:38px;border-color:rgba(34,211,238,.6);background:rgba(34,211,238,.16);font-size:19px}
+.badge{position:absolute;right:-6px;top:-6px;min-width:22px;height:20px;border-radius:999px;background:var(--green);color:#061006;font:800 10px 'JetBrains Mono',monospace;display:flex;align-items:center;justify-content:center;padding:0 5px;box-shadow:0 0 16px rgba(184,255,90,.35)}.sus-badge{background:var(--sus);color:#fff}.node-label{margin-top:7px;max-width:120px;overflow:hidden;text-overflow:ellipsis;padding:3px 8px;border:1px solid rgba(255,255,255,.09);border-radius:999px;background:rgba(3,6,4,.72);backdrop-filter:blur(10px);font-size:10px;font-weight:700;color:rgba(255,255,255,.88);white-space:nowrap;opacity:.68;transform:translateY(-2px) scale(.96);transition:.16s}.node-meta{margin-top:3px;font-family:'JetBrains Mono',monospace;font-size:8px;color:var(--t3);background:rgba(0,0,0,.36);padding:2px 6px;border-radius:999px}
+.tt{position:fixed;z-index:80;pointer-events:none;opacity:0;transform:translateY(4px);transition:.1s;padding:10px 13px;border-radius:13px;background:rgba(3,8,4,.88);border:1px solid rgba(184,255,90,.18);box-shadow:0 14px 42px rgba(0,0,0,.38);backdrop-filter:blur(18px);font-size:12px;color:var(--t1)}.tt.on{opacity:1;transform:translateY(0)}.tt small{display:block;margin-top:3px;color:var(--t3);font-family:'JetBrains Mono',monospace;font-size:9px}
+.backdrop{position:fixed;inset:0;z-index:90;background:rgba(0,0,0,0);backdrop-filter:blur(0);pointer-events:none;transition:.35s}.backdrop.show{background:rgba(0,0,0,.58);backdrop-filter:blur(8px);pointer-events:auto}.drawer{position:fixed;left:50%;bottom:0;z-index:100;width:min(96vw,1180px);max-height:86vh;overflow:auto;transform:translate(-50%,100%);transition:transform .45s cubic-bezier(.2,.9,.25,1);background:rgba(5,9,6,.96);border:1px solid rgba(184,255,90,.12);border-bottom:0;border-radius:26px 26px 0 0;box-shadow:0 -28px 80px rgba(0,0,0,.48);padding:28px}.drawer.show{transform:translate(-50%,0)}.drawer::-webkit-scrollbar{width:6px}.drawer::-webkit-scrollbar-thumb{background:rgba(184,255,90,.12);border-radius:6px}.handle{position:absolute;top:11px;left:50%;width:50px;height:4px;border-radius:3px;transform:translateX(-50%);background:rgba(255,255,255,.14)}.close{position:absolute;right:24px;top:20px;width:38px;height:38px;border-radius:13px;border:1px solid rgba(255,255,255,.08);background:rgba(255,255,255,.04);color:var(--t3);display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:15px}.close:hover{color:var(--t1);background:rgba(255,255,255,.08)}
+.grid{display:grid;grid-template-columns:340px 1fr;gap:16px;margin-top:8px}.hero,.card{background:linear-gradient(180deg,rgba(17,31,18,.92),rgba(9,17,10,.92));border:1px solid rgba(184,255,90,.08);border-radius:22px}.hero{padding:22px;display:flex;flex-direction:column;gap:16px}.photo{width:100%;aspect-ratio:1;border-radius:19px;overflow:hidden;background:radial-gradient(circle at 50% 35%,rgba(184,255,90,.36),rgba(55,255,139,.08) 45%,rgba(0,0,0,.3));display:flex;align-items:center;justify-content:center;position:relative}.photo img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}.photo:after{content:"";position:absolute;inset:0;background:radial-gradient(circle at 50% 35%,transparent 0,transparent 45%,rgba(0,0,0,.55) 100%)}.photo-initials{font-size:68px;font-weight:900;color:var(--green);z-index:1}.eyebrow{font-family:'JetBrains Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:.16em;color:var(--green)}.name{font-size:42px;line-height:.98;font-weight:900;letter-spacing:-.045em}.chips{display:flex;gap:7px;flex-wrap:wrap}.chip{border-radius:999px;padding:7px 12px;background:rgba(184,255,90,.12);border:1px solid rgba(184,255,90,.16);font-size:11px;font-weight:800;color:var(--t1)}.chip.green{background:var(--green);color:#061006}.chip.sus{background:var(--sus);color:#fff;border-color:transparent}.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:auto}.stat{padding:12px 8px;border-radius:14px;background:rgba(255,255,255,.04);text-align:center}.stat-k{font-family:'JetBrains Mono',monospace;color:var(--t3);font-size:9px;text-transform:uppercase;letter-spacing:.08em}.stat-v{font-size:18px;font-weight:800;margin-top:4px}.col{display:flex;flex-direction:column;gap:12px}.row{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.card{padding:18px 20px}.card-title{font-size:14px;font-weight:800;margin-bottom:12px}.kv{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px 18px}.kv div{font-size:13px;color:var(--t2)}.kv b{display:block;font-size:10px;color:var(--green);letter-spacing:.1em;text-transform:uppercase;margin-bottom:4px}.metric-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.metric{border-radius:15px;background:rgba(255,255,255,.04);padding:14px 8px;text-align:center}.metric .big{font-family:'JetBrains Mono',monospace;font-size:31px;font-weight:300;line-height:1}.metric span{display:block;margin-top:5px;font-size:9px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--t3)}.prose{font-size:13px;line-height:1.58;color:var(--t2)}.timeline{display:flex;flex-direction:column;gap:0}.tl{display:grid;grid-template-columns:38px 76px 1fr auto;gap:8px;align-items:center;padding:8px 0;border-bottom:1px solid rgba(255,255,255,.06);font-size:12px;color:var(--t2)}.tl:last-child{border-bottom:0}.tl-num,.tl-date{font-family:'JetBrains Mono',monospace;font-size:10px}.tl-date{color:var(--green)}.tl-tag{font-size:9px;font-weight:900;color:#fff;background:var(--sus);border-radius:7px;padding:3px 8px;text-transform:uppercase}.conn{display:flex;flex-wrap:wrap;gap:6px}.conn-chip{cursor:pointer;border-radius:11px;border:1px solid rgba(255,255,255,.08);background:rgba(255,255,255,.04);padding:7px 10px;font-size:12px;color:var(--t2);display:inline-flex;gap:7px;align-items:center}.conn-chip:hover{border-color:rgba(184,255,90,.32);color:var(--t1)}.dotty{width:7px;height:7px;border-radius:50%;background:var(--green)}
+@media(max-width:850px){.grid,.row,.kv{grid-template-columns:1fr}.topbar{padding:15px}.hud{display:none}.pills{top:58px}.drawer{padding:22px 14px}.name{font-size:34px}.player .node-core{width:42px;height:42px}.node-label{font-size:9px}.orb-caption{display:none}}
+/* ===== foul-line toggle ===== */
+.toggle{cursor:pointer;display:flex;align-items:center;gap:8px;user-select:none}
+.sw{width:32px;height:17px;border-radius:999px;background:rgba(255,255,255,.12);border:1px solid var(--line);position:relative;transition:.18s;flex:none}
+.sw:after{content:"";position:absolute;top:1px;left:1px;width:13px;height:13px;border-radius:50%;background:#fff;transition:.18s}
+.sw.on{background:rgba(255,90,95,.55);border-color:rgba(255,90,95,.5)}.sw.on:after{transform:translateX(15px)}
+.pill[data-f="fouls"].on{background:var(--tech);color:#fff;box-shadow:0 0 22px rgba(255,90,95,.4)}
+/* ===== data studio ===== */
+.studio-fab{position:fixed;right:18px;bottom:18px;z-index:60;pointer-events:auto;border:1px solid var(--line);background:rgba(11,23,12,.82);backdrop-filter:blur(18px);color:var(--t1);font:700 12px Outfit,sans-serif;letter-spacing:.02em;border-radius:14px;padding:11px 15px;cursor:pointer;box-shadow:0 10px 40px rgba(0,0,0,.42),0 0 22px rgba(184,255,90,.1);display:flex;gap:8px;align-items:center;transition:.18s}
+.studio-fab:hover{background:rgba(184,255,90,.14);border-color:rgba(184,255,90,.42);transform:translateY(-1px)}.studio-fab .gear{color:var(--green);font-size:13px}
+.studio{position:fixed;top:0;right:0;height:100%;width:min(96vw,460px);z-index:120;background:rgba(5,10,6,.975);border-left:1px solid rgba(184,255,90,.14);box-shadow:-30px 0 90px rgba(0,0,0,.55);transform:translateX(102%);transition:transform .42s cubic-bezier(.2,.9,.25,1);display:flex;flex-direction:column;pointer-events:auto}
+.studio.show{transform:translateX(0)}
+.studio-head{padding:18px 18px 14px;border-bottom:1px solid var(--line);display:flex;flex-direction:column;gap:12px;flex:none}
+.studio-top{display:flex;align-items:center;justify-content:space-between}
+.studio-title{font-size:18px;font-weight:900;letter-spacing:-.02em}.studio-title span{font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.16em;text-transform:uppercase;color:var(--t3);font-weight:500;margin-left:6px}
+.studio-x{width:34px;height:34px;border-radius:11px;border:1px solid rgba(255,255,255,.08);background:rgba(255,255,255,.04);color:var(--t3);cursor:pointer;font-size:14px}.studio-x:hover{color:var(--t1);background:rgba(255,255,255,.08)}
+.studio-tabs{display:flex;gap:5px;padding:4px;background:rgba(7,14,8,.7);border:1px solid var(--line);border-radius:13px}
+.stab{flex:1;border:0;background:transparent;color:var(--t3);font:700 12px Outfit,sans-serif;border-radius:10px;padding:8px;cursor:pointer;transition:.16s}.stab:hover{color:var(--t2)}.stab.on{background:var(--green);color:#061006}
+.studio-hint{font-size:11.5px;line-height:1.5;color:var(--t3)}.studio-hint b{color:var(--t1)}.foul-key{color:var(--tech);font-weight:700}
+.studio-body{flex:1;overflow:auto;padding:14px;scrollbar-width:thin;scrollbar-color:rgba(184,255,90,.18) transparent}
+.studio-body::-webkit-scrollbar{width:7px}.studio-body::-webkit-scrollbar-thumb{background:rgba(184,255,90,.16);border-radius:7px}
+.studio-foot{flex:none;display:flex;gap:7px;padding:13px 14px;border-top:1px solid var(--line);background:rgba(4,8,5,.7)}
+.sbtn{border-radius:11px;font:800 12px Outfit,sans-serif;padding:10px 12px;cursor:pointer;transition:.16s;border:1px solid rgba(255,255,255,.09);background:rgba(255,255,255,.04);color:var(--t2)}
+.sbtn.ghost:hover{color:var(--t1);background:rgba(255,255,255,.08);border-color:rgba(184,255,90,.3)}
+.sbtn.go{flex:1;background:var(--green);color:#061006;border-color:transparent;box-shadow:0 0 20px rgba(184,255,90,.22)}.sbtn.go:hover{filter:brightness(1.08)}
+/* player editor cards */
+.pe{border:1px solid var(--line);border-radius:14px;margin-bottom:9px;background:rgba(12,24,14,.5);overflow:hidden}
+.pe>summary{list-style:none;cursor:pointer;padding:11px 13px;display:flex;align-items:center;justify-content:space-between;gap:8px}.pe>summary::-webkit-details-marker{display:none}
+.pe>summary:hover{background:rgba(184,255,90,.05)}.pe[open]>summary{border-bottom:1px solid var(--line);background:rgba(184,255,90,.06)}
+.pe-name{font-weight:800;font-size:13px}.pe-sum{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--t3)}
+.pe-body{padding:13px;display:flex;flex-direction:column;gap:9px}
+.pe-body label{display:flex;flex-direction:column;gap:4px;font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.08em;text-transform:uppercase;color:var(--t3)}
+.pe-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.pe-body input[type=text],.pe-body input[type=number]{background:rgba(3,8,4,.7);border:1px solid var(--line);border-radius:9px;padding:8px 9px;color:var(--t1);font:600 13px Outfit,sans-serif;width:100%}
+.pe-body input:focus{outline:0;border-color:rgba(184,255,90,.5);box-shadow:0 0 0 2px rgba(184,255,90,.12)}
+.pe-chk{flex-direction:row!important;align-items:center;gap:7px!important;text-transform:none!important;font-size:11px!important;color:var(--t2)!important;cursor:pointer}.pe-chk input{width:16px;height:16px;accent-color:var(--sus)}
+.pe-inc{border:1px dashed rgba(255,90,95,.3);border-radius:11px;padding:10px;background:rgba(255,90,95,.04)}
+.pe-inc-h{font:800 10px 'JetBrains Mono',monospace;letter-spacing:.1em;text-transform:uppercase;color:var(--tech);margin-bottom:8px}.pe-inc-h span{color:var(--t4);font-weight:500;text-transform:none;letter-spacing:0}
+.inc{display:grid;grid-template-columns:64px 1fr 64px 26px;gap:5px;margin-bottom:5px}
+.inc input{background:rgba(3,8,4,.7);border:1px solid var(--line);border-radius:8px;padding:6px 7px;color:var(--t1);font:600 11px Outfit,sans-serif;width:100%}.inc input:focus{outline:0;border-color:rgba(255,90,95,.5)}
+.inc-del{border:1px solid rgba(255,90,95,.2);background:rgba(255,90,95,.08);color:var(--tech);border-radius:8px;cursor:pointer;font-size:11px}.inc-del:hover{background:rgba(255,90,95,.2)}
+.mini{margin-top:4px;border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.04);color:var(--t2);border-radius:9px;padding:7px 10px;font:700 11px Outfit,sans-serif;cursor:pointer;align-self:flex-start}.mini:hover{color:var(--t1);background:rgba(255,255,255,.08)}
+.mini.addInc{border-color:rgba(255,90,95,.25);color:var(--tech)}.mini.addInc:hover{background:rgba(255,90,95,.12)}
+.mini.danger{border-color:rgba(255,44,96,.25);color:var(--sus)}.mini.danger:hover{background:rgba(255,44,96,.14)}
+#jsonArea{width:100%;min-height:64vh;background:rgba(3,8,4,.8);border:1px solid var(--line);border-radius:12px;color:#cde8b8;font:400 12px 'JetBrains Mono',monospace;line-height:1.55;padding:13px;resize:vertical}#jsonArea:focus{outline:0;border-color:rgba(184,255,90,.4)}
+.json-err{margin-top:8px;color:var(--sus);font:600 12px 'JetBrains Mono',monospace;min-height:16px}
+@media(max-width:850px){.studio{width:100vw}.pe-grid{grid-template-columns:repeat(2,1fr)}.inc{grid-template-columns:54px 1fr 54px 24px}}
+.core-fallback{transition:opacity .25s}
+.node-core.has-img .core-fallback,.node-core.has-img .node-initials{opacity:0}
+.team .node-core,.college .node-core,.coach .node-core,.country .node-core{background-repeat:no-repeat;background-position:center}
+.node-core.has-img{background-color:rgba(8,16,10,.4)}
+
+
+/* ===== PDF-inspired Cambridge Intelligence styling override ===== */
+:root{
+  --bg:#f8fbff;--bg2:#eef5ff;--glass:rgba(255,255,255,.78);--glass2:rgba(255,255,255,.92);--line:rgba(39,95,255,.13);
+  --t1:#102142;--t2:rgba(16,33,66,.72);--t3:rgba(16,33,66,.48);--t4:rgba(16,33,66,.20);
+  --green:#2f62ff;--green2:#6f9bff;--mint:#8fd5ff;--blue:#2f62ff;--gold:#f4c557;--violet:#7a83ff;
+  --tech:#ec4d69;--flag:#f59f45;--eject:#7a83ff;--sus:#e7355f;--intl:#22a7d8;
+}
+html,body{
+  background:
+    radial-gradient(circle at 7% 100%, rgba(125,209,244,.62) 0%, rgba(125,209,244,.24) 18%, transparent 37%),
+    radial-gradient(circle at 92% 88%, rgba(250,221,105,.70) 0%, rgba(250,221,105,.25) 18%, transparent 40%),
+    linear-gradient(180deg,#ffffff 0%,#f7faff 52%,#eef6ff 100%)!important;
+  color:var(--t1)!important;
+}
+body:before{content:"";position:fixed;inset:0;z-index:0;pointer-events:none;background:linear-gradient(170deg,rgba(255,255,255,.88) 0%,rgba(255,255,255,.78) 42%,rgba(241,247,255,.78) 100%)}
+#canvas,#dom{z-index:1}.vignette{z-index:3;background:radial-gradient(circle at 50% 48%,transparent 0%,transparent 64%,rgba(112,154,215,.14) 100%)}
+.topbar{background:linear-gradient(180deg,rgba(255,255,255,.96),rgba(255,255,255,.75) 46%,rgba(255,255,255,0));padding:20px 30px 88px;border-bottom:0}
+.brand-mark{display:inline-flex;align-items:center;gap:9px;margin-bottom:10px;font-size:13px;font-weight:800;color:#1e43e9;letter-spacing:-.01em}.brand-dot{width:24px;height:24px;border-radius:50%;background:#2f62ff;display:inline-block;position:relative}.brand-dot:after{content:"";position:absolute;left:6px;top:6px;width:12px;height:12px;border-radius:50%;background:white;box-shadow:12px 0 0 -4px white}
+.logo-main{font-size:28px;color:var(--t1);letter-spacing:-.045em}.dot{color:#2f62ff}.sub{color:var(--t3);font-size:10px;letter-spacing:.17em}.hud-pill{background:rgba(255,255,255,.82);border-color:rgba(47,98,255,.16);box-shadow:0 10px 30px rgba(27,70,145,.08);color:var(--t3)}.hud strong{color:#2f62ff}.sw{background:rgba(47,98,255,.08);border-color:rgba(47,98,255,.16)}.sw.on{background:rgba(236,77,105,.24);border-color:rgba(236,77,105,.3)}
+.pills{top:88px;background:rgba(255,255,255,.86);border-color:rgba(47,98,255,.14);box-shadow:0 18px 42px rgba(25,65,140,.12);backdrop-filter:blur(22px)}.pill{color:var(--t3)}.pill:hover{color:var(--t1);background:rgba(47,98,255,.06)}.pill.on{background:#2f62ff;color:#fff;box-shadow:0 8px 22px rgba(47,98,255,.24)}.pill[data-f="fouls"].on{background:#ec4d69;color:#fff;box-shadow:0 8px 22px rgba(236,77,105,.24)}
+.orb-caption{bottom:28px;color:var(--t3);background:rgba(255,255,255,.74);border:1px solid rgba(47,98,255,.12);box-shadow:0 14px 34px rgba(31,73,142,.08);border-radius:999px;padding:9px 15px}.orb-caption b{color:#2f62ff}.tt{background:rgba(255,255,255,.94);border-color:rgba(47,98,255,.14);box-shadow:0 18px 50px rgba(16,33,66,.18);color:var(--t1)}.tt small{color:var(--t3)}
+.node-core{background:#fff;border:1px solid rgba(47,98,255,.26);box-shadow:0 10px 30px rgba(47,98,255,.12), inset 0 0 14px rgba(47,98,255,.04)}
+.player .node-core{border:2px solid #2f62ff;box-shadow:0 12px 28px rgba(47,98,255,.18), inset 0 0 8px rgba(255,255,255,.45)}.player.high .node-core{box-shadow:0 14px 34px rgba(47,98,255,.26),0 0 0 8px rgba(47,98,255,.06)}.player.intl .node-core{border-color:#22a7d8;box-shadow:0 12px 30px rgba(34,167,216,.20)}.node-initials{color:#2f62ff;text-shadow:0 1px 2px rgba(16,33,66,.16)}.player .node-initials{background:rgba(255,255,255,.78);color:#1e43e9;text-shadow:0 1px 2px rgba(255,255,255,.28)}.team .node-core{border-color:rgba(47,98,255,.40);color:#1e43e9;background:rgba(47,98,255,.07)}.college .node-core{border-color:rgba(244,197,87,.50);background:rgba(244,197,87,.17);color:#7a5a00}.coach .node-core{border-color:rgba(122,131,255,.46);background:rgba(122,131,255,.12);color:#464bce}.country .node-core{border-color:rgba(34,167,216,.48);background:rgba(34,167,216,.11)}
+.badge{background:#2f62ff;color:#fff;box-shadow:0 8px 18px rgba(47,98,255,.25)}.sus-badge{background:#e7355f;color:#fff}.node-label{border-color:rgba(47,98,255,.12);background:rgba(255,255,255,.86);color:rgba(16,33,66,.90);box-shadow:0 8px 18px rgba(16,33,66,.08)}.node-meta{background:rgba(255,255,255,.80);color:var(--t3);border:1px solid rgba(47,98,255,.08)}
+.backdrop.show{background:rgba(16,33,66,.28);backdrop-filter:blur(8px)}.drawer{background:rgba(255,255,255,.985);border-color:rgba(47,98,255,.14);box-shadow:0 -30px 80px rgba(28,59,112,.22)}.handle{background:rgba(47,98,255,.18)}.close,.studio-x{background:rgba(47,98,255,.06);border-color:rgba(47,98,255,.12);color:var(--t3)}.close:hover,.studio-x:hover{color:var(--t1);background:rgba(47,98,255,.10)}.hero,.card{background:linear-gradient(180deg,rgba(255,255,255,.96),rgba(249,252,255,.96));border-color:rgba(47,98,255,.11);box-shadow:0 16px 42px rgba(31,73,142,.10)}.photo{background:radial-gradient(circle at 50% 35%,rgba(47,98,255,.18),rgba(143,213,255,.12) 47%,rgba(244,197,87,.12));box-shadow:inset 0 0 0 1px rgba(47,98,255,.08)}.photo:after{background:radial-gradient(circle at 50% 35%,transparent 0,transparent 50%,rgba(255,255,255,.55) 100%)}.photo-initials{color:#fff;text-shadow:0 1px 2px rgba(16,33,66,.22),0 4px 14px rgba(16,33,66,.22)}.eyebrow{color:#2f62ff}.name{color:var(--t1)}.chip{background:rgba(47,98,255,.08);border-color:rgba(47,98,255,.13);color:var(--t1)}.chip.green{background:#2f62ff;color:#fff}.chip.sus{background:#e7355f;color:#fff}.stat,.metric{background:rgba(47,98,255,.055);border:1px solid rgba(47,98,255,.06)}.stat-k,.metric span{color:var(--t3)}.stat-v,.metric .big{color:var(--t1)}.kv div,.prose,.tl{color:var(--t2)}.kv b,.tl-date{color:#2f62ff}.tl{border-bottom-color:rgba(47,98,255,.09)}.tl-tag{background:#e7355f}.conn-chip{background:rgba(47,98,255,.055);border-color:rgba(47,98,255,.10);color:var(--t2)}.conn-chip:hover{border-color:rgba(47,98,255,.28);color:var(--t1)}.dotty{background:#2f62ff}
+.studio-fab{background:rgba(255,255,255,.90);border-color:rgba(47,98,255,.16);color:var(--t1);box-shadow:0 16px 38px rgba(27,70,145,.14)}.studio-fab:hover{background:rgba(47,98,255,.08);border-color:rgba(47,98,255,.28)}.studio-fab .gear{color:#2f62ff}.studio{background:rgba(255,255,255,.985);border-left-color:rgba(47,98,255,.14);box-shadow:-30px 0 70px rgba(28,59,112,.20)}.studio-head,.studio-foot{border-color:rgba(47,98,255,.12);background:rgba(255,255,255,.70)}.studio-title{color:var(--t1)}.studio-title span,.studio-hint{color:var(--t3)}.studio-hint b{color:var(--t1)}.studio-tabs{background:rgba(47,98,255,.055);border-color:rgba(47,98,255,.12)}.stab{color:var(--t3)}.stab.on{background:#2f62ff;color:#fff}.pe{background:rgba(247,250,255,.72);border-color:rgba(47,98,255,.12)}.pe>summary:hover,.pe[open]>summary{background:rgba(47,98,255,.06)}.pe[open]>summary{border-bottom-color:rgba(47,98,255,.11)}.pe-name{color:var(--t1)}.pe-sum{color:var(--t3)}.pe-body label{color:var(--t3)}.pe-body input[type=text],.pe-body input[type=number],.inc input,#jsonArea{background:#fff;border-color:rgba(47,98,255,.14);color:var(--t1)}.pe-body input:focus,.inc input:focus,#jsonArea:focus{border-color:rgba(47,98,255,.42);box-shadow:0 0 0 2px rgba(47,98,255,.10)}.pe-inc{border-color:rgba(236,77,105,.22);background:rgba(236,77,105,.045)}.sbtn{background:rgba(47,98,255,.06);border-color:rgba(47,98,255,.12);color:var(--t2)}.sbtn.go{background:#2f62ff;color:#fff;box-shadow:0 10px 24px rgba(47,98,255,.20)}.mini{background:#fff;color:var(--t2);border-color:rgba(47,98,255,.14)}
+@media(max-width:850px){.pills{top:82px}.brand-mark{margin-bottom:6px}.logo-main{font-size:23px}.topbar{padding:15px 14px 82px}.orb-caption{display:none}}
+
+</style>
+</head>
+<body>
+<canvas id="canvas"></canvas><div id="dom"></div><div class="vignette"></div>
+<div class="topbar"><div class="logo"><div class="logo-main">Project Lato</div><div class="sub">WNBA 2025 graph visualization</div></div><div class="hud"><div class="hud-pill"><strong id="countPlayers">0</strong> players</div><div class="hud-pill"><strong id="countTechs">0</strong> techs</div><div class="hud-pill toggle" id="motionToggle" title="Start or stop globe rotation"><span class="sw on"></span>Motion</div><div class="hud-pill toggle" id="foulToggle" title="Toggle foul correlation lines"><span class="sw on"></span>Foul lines</div></div></div>
+<div class="pills" id="pills"><button class="pill on" data-f="all">All</button><button class="pill" data-f="player">Players</button><button class="pill" data-f="team">Teams</button><button class="pill" data-f="coach">Coaches</button><button class="pill" data-f="college">Colleges</button><button class="pill" data-f="5+">5+ Techs</button><button class="pill" data-f="flagrant">Flagrants</button><button class="pill" data-f="ejected">Ejected</button><button class="pill" data-f="intl">Int'l</button><button class="pill" data-f="fouls">Foul Network</button><button class="pill" data-f="uconn">UConn</button></div>
+<div class="orb-caption"><b>Interactive graph</b> styled as a clean analytical white paper · all original player, coach, team, college and incident data retained</div>
+<div class="tt" id="tt"></div><div class="backdrop" id="bd"></div><div class="drawer" id="drawer"><div id="drawerInner"></div></div>
+
+<datalist id="teamList"></datalist><datalist id="recipList"></datalist>
+<button class="studio-fab" id="studioFab"><span class="gear">◆</span> Data Studio</button>
+<aside class="studio" id="studio">
+  <div class="studio-head">
+    <div class="studio-top"><div class="studio-title">Data Studio <span>edit · rebuild</span></div><button class="studio-x" id="studioClose">✕</button></div>
+    <div class="studio-tabs"><button class="stab on" data-tab="form">Players</button><button class="stab" data-tab="json">Raw JSON</button></div>
+    <div class="studio-hint">Edit stats, add players, log <b>incidents</b> — each incident's recipient (a team or another player's name) draws a <span class="foul-key">foul correlation line</span>. Hit <b>Apply</b> to rebuild the orb. Edits persist in this browser.</div>
+  </div>
+  <div class="studio-body">
+    <div class="tab-form"><div id="peList"></div></div>
+    <div class="tab-json" hidden><textarea id="jsonArea" spellcheck="false"></textarea><div class="json-err" id="jsonErr"></div></div>
+  </div>
+  <div class="studio-foot">
+    <button class="sbtn ghost" id="addPlayer">+ Player</button>
+    <button class="sbtn ghost" id="exportData">Export</button>
+    <button class="sbtn ghost" id="resetData">Reset</button>
+    <button class="sbtn go" id="applyData">Apply &amp; Rebuild</button>
+  </div>
+</aside>
+<script>
+const DEFAULT_P=[
+{n:"Angel Reese",tm:"Chicago Sky",t:8,fl:2,ej:0,gp:30,sus:true,bt:"Physical",age:23,nat:"US",col:"LSU",pos:"F",h:"6'3\"",j:5,dr:"2024 R1 #7",tr:.267,vi:10,quote:"Suspended after tech #8 vs Connecticut Sun",bio:"'Bayou Barbie.' Led LSU to 2023 NCAA Championship. Two-time All-Star, two-time rebounding leader. Set the WNBA rookie record for double-doubles. Most techs in the league in 2025 — suspended after #8.",ins:"Highest tech rate at 0.267 per game. 3 of 8 techs came against Connecticut Sun. Nearly tripled her 2024 total of 3.",tl:[{d:"May 17",o:"Indiana Fever"},{d:"May 22",o:"New York Liberty"},{d:"May 31",o:"Dallas Wings"},{d:"Jun 15",o:"Connecticut Sun"},{d:"Jun 29",o:"LA Sparks"},{d:"Jul 8",o:"Washington Mystics"},{d:"Jul 22",o:"Minnesota Lynx"},{d:"Sep 3",o:"Connecticut Sun",x:"Suspension"}],img:"https://placehold.co/400x400/461D7C/FDD023?text=AR"},
+{n:"Natasha Cloud",tm:"New York Liberty",t:6,fl:0,ej:0,gp:41,bt:"Verbal",age:33,nat:"US",col:"West Chester",pos:"G",h:"6'0\"",j:9,dr:"2015 R2 #18",tr:.146,vi:6,quote:"All 6 techs verbal — controlled intensity",bio:"2019 WNBA Champion with Mystics. Sat out 2020 for activism. Fiery, defense-first guard. 6 techs, zero flagrants.",ins:"All 6 techs were verbal — zero physical escalation. 2nd in the league despite a clean flagrant/ejection record.",img:"https://placehold.co/400x400/86CEBC/161616?text=NC"},
+{n:"Bria Hartley",tm:"Connecticut Sun",t:5,fl:3,ej:2,gp:38,bt:"Volatile",age:33,nat:"US",col:"UConn",pos:"G",h:"5'9\"",j:14,dr:"2014 R1 #9",tr:.132,vi:10,quote:"Most volatile profile in the league",bio:"UConn product with decade-long career. League-high 3 flagrant fouls and 2 ejections — most volatile player tracked.",ins:"Volatility Index of 10 (tied with Reese). League-high 3 flagrants. Only player with 2+ ejections.",img:"https://placehold.co/400x400/F37840/161616?text=BH"},
+{n:"Shakira Austin",tm:"Washington Mystics",t:5,fl:0,ej:1,gp:38,bt:"Verbal",age:24,nat:"US",col:"Ole Miss",pos:"C",h:"6'5\"",j:0,dr:"2022 R1 #3",tr:.132,vi:6,quote:"Argues calls, not physical",bio:"#3 overall pick. 5 techs with zero flagrants — argues calls rather than dangerous plays. Verbal competitor.",ins:"5 techs, 0 flagrants: pure verbal profile. Referee disputes, not physical escalation.",img:"https://placehold.co/400x400/C8102E/ffffff?text=SA"},
+{n:"Alyssa Thomas",tm:"Phoenix Mercury",t:4,fl:1,ej:0,gp:39,bt:"Mixed",age:33,nat:"US",col:"Maryland",pos:"F",h:"6'1\"",j:25,dr:"2014 R1 #4",tr:.103,vi:5,quote:"Plays at full intensity for 39 games",bio:"One of the most complete forwards of her generation. Elite passing, relentless motor. Multiple All-Star.",ins:"Veteran (age 33). One of three Mercury players in the top 15.",img:"https://placehold.co/400x400/E56020/161616?text=AT"},
+{n:"Kayla McBride",tm:"Minnesota Lynx",t:4,fl:0,ej:0,gp:39,bt:"Verbal",age:33,nat:"US",col:"Notre Dame",pos:"G",h:"5'10\"",j:21,dr:"2014 R1 #8",tr:.103,vi:4,quote:"Verbal frustration, not physical",bio:"Sharp-shooting guard, one of WNBA's most reliable scorers for a decade. Clean flagrant/ejection record.",ins:"4 techs, zero flagrants/ejections. Notre Dame pipeline (with Mabrey).",img:"https://placehold.co/400x400/236192/ffffff?text=KM"},
+{n:"Allisha Gray",tm:"Atlanta Dream",t:4,fl:1,ej:0,gp:42,bt:"Mixed",age:30,nat:"US",col:"South Carolina",pos:"G/F",h:"6'0\"",j:15,dr:"2017 R1 #4",tr:.095,vi:5,quote:"42 GP — most among 4+ tech players",bio:"Athletic, versatile wing from South Carolina. Physicality on defense drives tech count.",ins:"Played 42 games — highest GP among players with 4+ techs. South Carolina pipeline.",img:"https://placehold.co/400x400/E03B45/161616?text=AG"},
+{n:"Kelsey Plum",tm:"Los Angeles Sparks",t:4,fl:1,ej:0,gp:43,bt:"Mixed",age:30,nat:"US",col:"Washington",pos:"G",h:"5'8\"",j:10,dr:"2017 R1 #1",tr:.093,vi:5,quote:"Highest usage among 4+ tech players",bio:"All-time NCAA scoring leader at draft. Explosive offensive guard. Part of Aces dynasty before LA.",ins:"Highest usage (35.1 MPG) among 4+ tech players. Former #1 overall pick.",img:"https://placehold.co/400x400/552583/F5B112?text=KP"},
+{n:"Marina Mabrey",tm:"Connecticut Sun",t:4,fl:0,ej:0,gp:35,bt:"Verbal",age:28,nat:"US",col:"Notre Dame",pos:"G",h:"5'11\"",j:4,dr:"2019 R1 #11",tr:.114,vi:4,quote:"More bark than bite — zero flagrants",bio:"Sharpshooting guard. Animated on-court personality. More bark than bite — zero flagrants.",ins:"Two Notre Dame alums in top 10 (Mabrey + McBride).",img:"https://placehold.co/400x400/F37840/161616?text=MM"},
+{n:"Kahleah Copper",tm:"Phoenix Mercury",t:3,fl:1,ej:0,gp:28,bt:"Mixed",age:30,nat:"US",col:"Rutgers",pos:"G/F",h:"6'0\"",j:2,dr:"2016 R2 #17",tr:.107,vi:4,quote:"High rate in only 28 games",bio:"2023 WNBA Finals MVP. Premier two-way wing.",ins:"3 techs in only 28 GP — among the highest per-game rates.",img:"https://placehold.co/400x400/E56020/161616?text=KC"},
+{n:"Tiffany Hayes",tm:"Golden State Valkyries",t:3,fl:1,ej:0,gp:26,bt:"Mixed",age:35,nat:"US",col:"UConn",pos:"G",h:"5'10\"",j:15,dr:"2012 R1 #5",tr:.115,vi:4,quote:"Oldest tracked, still has her edge",bio:"UConn product, long career with Atlanta Dream. Joined expansion Valkyries in 2025.",ins:"Age 35 — oldest player tracked. 3 techs in 26 games: high rate. UConn pipeline.",img:"https://placehold.co/400x400/FFCD00/161616?text=TH"},
+{n:"Tina Charles",tm:"Connecticut Sun",t:3,fl:1,ej:0,gp:43,bt:"Mixed",age:36,nat:"US",col:"UConn",pos:"C",h:"6'4\"",j:31,dr:"2010 R1 #1",tr:.07,vi:4,quote:"Hall of Fame-caliber career",bio:"UConn legend. Former #1 pick. One of the greatest post scorers in WNBA history.",ins:"Age 36 — 2nd oldest. Three UConn alums tracked.",img:"https://placehold.co/400x400/F37840/161616?text=TC"},
+{n:"Brittney Griner",tm:"Atlanta Dream",t:3,fl:0,ej:1,gp:39,bt:"Mixed",age:34,nat:"US",col:"Baylor",pos:"C",h:"6'9\"",j:42,dr:"2013 R1 #1",tr:.077,vi:4,quote:"Cultural icon, dominant force",bio:"One of the most dominant WNBA players ever. Detained in Russia 2022-23. Returned with Atlanta Dream.",ins:"Atlanta had 2 ejected players in 2025 (Griner + Howard).",img:"https://placehold.co/400x400/E03B45/161616?text=BG"},
+{n:"Gabby Williams",tm:"Seattle Storm",t:3,fl:0,ej:0,gp:44,bt:"Clean",age:29,nat:"FR",fg:"🇫🇷",col:"UConn",pos:"F",h:"6'1\"",j:1,dr:"2018 R1 #4",tr:.068,vi:3,quote:"Most composed profile — 44 GP, zero flagrants",bio:"UConn product and French national team star. Most versatile forward.",ins:"International (France). All 44 games, zero flagrants/ejections — most composed.",img:"https://placehold.co/400x400/2C5234/F5B112?text=GW"},
+{n:"DeWanna Bonner",tm:"Phoenix Mercury",t:3,fl:0,ej:0,gp:33,bt:"Clean",age:38,nat:"US",col:"Auburn",pos:"F/G",h:"6'4\"",j:24,dr:"2009 R1 #4",tr:.091,vi:3,quote:"Longest-tenured player tracked",bio:"4x champion. 16+ year career.",ins:"Age 38 — THE oldest. Third Phoenix Mercury player in top 15.",img:"https://placehold.co/400x400/E56020/161616?text=DB"},
+{n:"Rhyne Howard",tm:"Atlanta Dream",t:3,fl:0,ej:1,gp:33,bt:"Mixed",age:24,nat:"US",col:"Kentucky",pos:"G",h:"6'0\"",j:10,dr:"2022 R1 #1",tr:.091,vi:4,quote:"2022 #1 pick + ROY",bio:"Elite two-way guard with developing offensive game.",ins:"Youngest #1 pick tracked. Atlanta had 2 ejections.",img:"https://placehold.co/400x400/E03B45/161616?text=RH"},
+{n:"Rickea Jackson",tm:"Los Angeles Sparks",t:3,fl:0,ej:0,gp:38,bt:"Clean",age:23,nat:"US",col:"Tennessee",pos:"F",h:"6'2\"",j:2,dr:"2023 R1 #4",tr:.079,vi:3,quote:"2nd youngest, clean record",bio:"High-scoring forward from Tennessee.",ins:"2nd youngest player tracked (23). Clean flagrant record.",img:"https://placehold.co/400x400/552583/F5B112?text=RJ"},
+{n:"Erica Wheeler",tm:"Seattle Storm",t:2,fl:0,ej:0,gp:44,bt:"Clean",age:33,nat:"US",col:"Rutgers",pos:"G",h:"5'7\"",j:17,dr:"Undrafted",tr:.045,vi:2,quote:"Undrafted to All-Star MVP",bio:"Great undrafted success story. 2019 All-Star Game MVP. Fearless guard.",ins:"Only undrafted player on the list.",img:"https://placehold.co/400x400/2C5234/F5B112?text=EW"},
+{n:"Rebecca Allen",tm:"Chicago Sky",t:2,fl:0,ej:1,gp:44,bt:"Mixed",age:33,nat:"AU",fg:"🇦🇺",col:"Australia",pos:"F",h:"6'1\"",j:9,dr:"2015 R2 #14",tr:.045,vi:3,quote:"Bypassed NCAA entirely",bio:"Australian international. No US college.",ins:"International (Australia). Direct from Australian league.",img:"https://placehold.co/400x400/5FA8E4/161616?text=RA"},
+{n:"Brittney Sykes",tm:"Seattle Storm",t:2,fl:1,ej:0,gp:39,bt:"Physical",age:31,nat:"US",col:"Syracuse",pos:"G",h:"5'9\"",j:15,dr:"2017 R1 #3",tr:.051,vi:3,quote:"Physical defender",bio:"Tenacious defensive guard.",ins:"Physical defensive profile: flagrant + 2 techs.",img:"https://placehold.co/400x400/2C5234/F5B112?text=BS"},
+{n:"Jonquel Jones",tm:"New York Liberty",t:2,fl:0,ej:0,gp:31,bt:"Clean",age:31,nat:"BS",fg:"🇧🇸",col:"George Washington",pos:"C/F",h:"6'6\"",j:35,dr:"2016 R1 #6",tr:.065,vi:2,quote:"2021 MVP from the Bahamas",bio:"Most skilled big player in league history.",ins:"International (Bahamas). 2021 WNBA MVP.",img:"https://placehold.co/400x400/86CEBC/161616?text=JJ"},
+{n:"Skylar Diggins",tm:"Seattle Storm",t:2,fl:0,ej:0,gp:43,bt:"Clean",age:35,nat:"US",col:"Notre Dame",pos:"G",h:"5'9\"",j:4,dr:"2013 R1 #3",tr:.047,vi:2,quote:"Significant maturation — was 2022 leader",bio:"Multiple-time All-Star. Led league with 8 techs in 2022 — now mellowed.",ins:"Led league with 8 techs in 2022 — now only 2. Significant decline.",img:"https://placehold.co/400x400/2C5234/F5B112?text=SD"},
+{n:"Kelsey Mitchell",tm:"Indiana Fever",t:2,fl:0,ej:0,gp:44,bt:"Clean",age:29,nat:"US",col:"Ohio State",pos:"G",h:"5'8\"",j:0,dr:"2018 R1 #2",tr:.045,vi:2,quote:"All 44 games with Fever",bio:"Lightning-quick guard. Primary Fever scorer alongside Caitlin Clark.",ins:"Played all 44 games. Part of Fever's new era.",img:"https://placehold.co/400x400/E03A3E/161616?text=KM"},
+{n:"A'ja Wilson",tm:"Las Vegas Aces",t:2,fl:0,ej:0,gp:40,bt:"Clean",age:29,nat:"US",col:"South Carolina",pos:"F/C",h:"6'4\"",j:22,dr:"2018 R1 #1",tr:.05,vi:2,quote:"Footnote in MVP season",bio:"Best player in the WNBA. Two-time MVP, two-time champion, Olympic gold.",ins:"2 techs: footnote in an MVP-caliber season. South Carolina.",img:"https://placehold.co/400x400/A7A8AA/161616?text=AW"},
+{n:"Kia Nurse",tm:"Chicago Sky",t:2,fl:0,ej:0,gp:44,bt:"Clean",age:28,nat:"CA",fg:"🇨🇦",col:"UConn",pos:"G",h:"5'11\"",j:12,dr:"2018 R1 #10",tr:.045,vi:2,quote:"Hustle and energy",bio:"Canadian international and UConn product.",ins:"International (Canada). 5th UConn alum tracked.",img:"https://placehold.co/400x400/5FA8E4/161616?text=KN"},
+];
+const DEFAULT_CO=[
+{n:"Tyler Marsh",tm:"Chicago Sky",t:5,bio:"First-year HC. Led the most technical-heavy roster."},
+{n:"Becky Hammon",tm:"Las Vegas Aces",t:4,bio:"HOF player. First female NBA assistant. Back-to-back titles 2022-23."},
+{n:"Cheryl Reeve",tm:"Minnesota Lynx",t:4,bio:"4x WNBA champion. USA Basketball HC."},
+{n:"Lynne Roberts",tm:"Los Angeles Sparks",t:4,bio:"College coach turned WNBA. Player-development approach."},
+{n:"Nate Tibbetts",tm:"Phoenix Mercury",t:4,bio:"3 of his players in top 15 — franchise culture of edge."},
+{n:"Stephanie White",tm:"Indiana Fever",t:4,bio:"Former Fever player. Emotional investment on sideline."},
+{n:"Sandy Brondello",tm:"New York Liberty",t:3,bio:"Australian. Built Liberty into perennial contender."},
+{n:"Sydney Johnson",tm:"Washington Mystics",t:2,bio:"Princeton background. System-based coaching."},
+{n:"Chris Koclanes",tm:"Dallas Wings",t:2,bio:"Rebuilding Dallas Wings."},
+{n:"Natalie Nakase",tm:"Golden State Valkyries",t:2,bio:"Trailblazer. First Valkyries HC."},
+{n:"Karl Smesko",tm:"Atlanta Dream",t:1,bio:"FGCU legend. Innovative offense. Most composed sideline."},
+];
+const COLL={
+  "LSU":{c:["#461D7C","#FDD023"],ab:"LSU",label:"Louisiana State"},
+  "UConn":{c:["#000E2F","#E4002B"],ab:"UConn",label:"Connecticut"},
+  "Notre Dame":{c:["#0C2340","#C99700"],ab:"ND",label:"Notre Dame"},
+  "Maryland":{c:["#E03A3E","#FFD520"],ab:"UMD",label:"Maryland"},
+  "South Carolina":{c:["#73000A","#000000"],ab:"SC",label:"South Carolina"},
+  "Tennessee":{c:["#FF8200","#FFFFFF"],ab:"TENN",label:"Tennessee"},
+  "Ohio State":{c:["#BB0000","#666666"],ab:"OSU",label:"Ohio State"},
+  "Kentucky":{c:["#0033A0","#FFFFFF"],ab:"UK",label:"Kentucky"},
+  "Washington":{c:["#4B2E83","#B7A57A"],ab:"UW",label:"Washington"},
+  "Auburn":{c:["#0C2340","#E87722"],ab:"AUB",label:"Auburn"},
+  "Baylor":{c:["#003015","#FFB81C"],ab:"BU",label:"Baylor"},
+  "Syracuse":{c:["#F76900","#000E54"],ab:"SYR",label:"Syracuse"},
+  "Rutgers":{c:["#CC0033","#FFFFFF"],ab:"RU",label:"Rutgers"},
+  "George Washington":{c:["#033C5A","#A69362"],ab:"GW",label:"George Washington"},
+  "Ole Miss":{c:["#CE1126","#14213D"],ab:"OM",label:"Ole Miss"},
+  "West Chester":{c:["#582C83","#FFC72C"],ab:"WCU",label:"West Chester"},
+  "Australia":{c:["#00843D","#FFCD00"],ab:"AUS",label:"Australia"}
+};
+const TC={
+  "Chicago Sky":"#5FA8E4","Connecticut Sun":"#F37840","Atlanta Dream":"#E03B45",
+  "Phoenix Mercury":"#E56020","Los Angeles Sparks":"#552583","Seattle Storm":"#2C5234",
+  "New York Liberty":"#86CEBC","Washington Mystics":"#C8102E","Minnesota Lynx":"#236192",
+  "Las Vegas Aces":"#A7A8AA","Indiana Fever":"#E03A3E","Golden State Valkyries":"#FFCD00",
+  "Dallas Wings":"#0C2340"
+};
+const COUNTRIES={
+  "FR":{flag:"🇫🇷",label:"France",c:"#0055A4"},
+  "AU":{flag:"🇦🇺",label:"Australia",c:"#012169"},
+  "BS":{flag:"🇧🇸",label:"Bahamas",c:"#00778B"},
+  "CA":{flag:"🇨🇦",label:"Canada",c:"#FF0000"}
+};
+const clone=o=>JSON.parse(JSON.stringify(o));
+let P=clone(DEFAULT_P), CO=clone(DEFAULT_CO);
+try{const s=JSON.parse(localStorage.getItem('lato_data_v1')||'null');if(s&&Array.isArray(s.P)&&s.P.length){P=s.P;if(Array.isArray(s.CO))CO=s.CO;}}catch(e){}
+function saveData(){try{localStorage.setItem('lato_data_v1',JSON.stringify({P,CO}));}catch(e){}}
+
+const colorForType={player:'var(--green)',team:'var(--blue)',coach:'var(--violet)',college:'var(--gold)',country:'var(--intl)'};
+const slug=s=>String(s).replace(/[^a-z0-9]+/gi,'-').replace(/^-|-$/g,'');
+const initials=s=>String(s).split(/\s+/).map(w=>w[0]||'').join('').slice(0,3).toUpperCase();
+const NODES=[], LINKS=[]; const nodeMap=new Map();
+function add(n){NODES.push(n); nodeMap.set(n.id,n); return n;}
+function buildGraph(){
+  NODES.length=0;LINKS.length=0;nodeMap.clear();
+  P.forEach(p=>{p.intl=p.nat!=='US';});
+  const TEAMS=[...new Set([...P.map(p=>p.tm),...CO.map(c=>c.tm)])];
+  const COLS=[...new Set(P.map(p=>p.col))];
+  const CTYS=[...new Set(P.filter(p=>p.intl).map(p=>p.nat))];
+  TEAMS.forEach(tm=>{const tp=P.filter(p=>p.tm===tm),tc=CO.filter(c=>c.tm===tm);add({id:`T-${slug(tm)}`,n:tm,label:tm.split(' ').pop(),type:'team',color:TC[tm]||'#64d6ff',t:tp.reduce((a,p)=>a+(+p.t||0),0)+tc.reduce((a,c)=>a+(+c.t||0),0),pc:tp.length,cc:tc.length});});
+  COLS.forEach(col=>{const cp=P.filter(p=>p.col===col);const cc=COLL[col];add({id:`COL-${slug(col)}`,n:col,label:cc?.ab||col,type:'college',color:cc?.c?.[0]||'#ffcf56',t:cp.reduce((a,p)=>a+(+p.t||0),0),pc:cp.length});});
+  CTYS.forEach(ct=>{const cp=P.filter(p=>p.nat===ct);add({id:`CT-${ct}`,n:COUNTRIES[ct]?.label||ct,label:COUNTRIES[ct]?.flag||ct,type:'country',color:COUNTRIES[ct]?.c||'#22d3ee',t:cp.length,code:ct,flag:COUNTRIES[ct]?.flag});});
+  P.forEach((p,i)=>{add({id:`P-${slug(p.n)}`,type:'player',label:(p.n||'').split(' ').pop(),color:p.intl?'#22d3ee':'#b8ff5a',...p});});
+  CO.forEach(c=>{add({id:`C-${slug(c.n)}`,type:'coach',label:(c.n||'').split(' ').pop(),color:'#b891ff',...c});});
+  P.forEach(p=>{add_aff(`P-${slug(p.n)}`,`T-${slug(p.tm)}`,'team');add_aff(`P-${slug(p.n)}`,`COL-${slug(p.col)}`,'college');if(p.intl)add_aff(`P-${slug(p.n)}`,`CT-${p.nat}`,'country');});
+  CO.forEach(c=>add_aff(`C-${slug(c.n)}`,`T-${slug(c.tm)}`,'team'));
+  // ---- FOUL / INCIDENT correlation links (fouler -> recipient) ----
+  P.forEach(p=>{
+    if(!Array.isArray(p.tl)) return;
+    const src=`P-${slug(p.n)}`, tally={};
+    p.tl.forEach(ev=>{
+      const rec=(ev&&ev.p&&String(ev.p).trim())?ev.p:(ev?ev.o:null);   // explicit recipient player overrides opponent team
+      if(!rec) return;
+      const key=nodeMap.has(`P-${slug(rec)}`)?`P-${slug(rec)}`:(nodeMap.has(`T-${slug(rec)}`)?`T-${slug(rec)}`:null);
+      if(!key||key===src) return;
+      (tally[key]=tally[key]||{w:0,sus:false}).w++; if(ev.x&&/susp/i.test(ev.x))tally[key].sus=true;
+    });
+    Object.entries(tally).forEach(([key,v])=>LINKS.push({a:src,b:key,type:'foul',w:v.w,sus:v.sus}));
+  });
+  LINKS.forEach(l=>{l.source=nodeMap.get(l.a);l.target=nodeMap.get(l.b);});
+}
+function add_aff(a,b,type){if(nodeMap.has(a)&&nodeMap.has(b))LINKS.push({a,b,type});}
+function updateCounts(){const cp=document.getElementById('countPlayers'),ct=document.getElementById('countTechs');if(cp)cp.textContent=P.length;if(ct)ct.textContent=P.reduce((a,p)=>a+(+p.t||0),0);}
+
+const canvas=document.getElementById('canvas'), ctx=canvas.getContext('2d',{alpha:false}); const dom=document.getElementById('dom'); const tt=document.getElementById('tt');
+let W=0,H=0,CX=0,CY=0,orbR=360,nodeR=430,rotX=-.04,rotY=.18,drag=false,lastX=0,lastY=0,filter='all',activeId=null,foulDash=0,showFouls=true,autoRotate=true; const AUTO_ROTATE_Y=-.0006, AUTO_ROTATE_X=.00005;
+function resize(){W=innerWidth;H=innerHeight;CX=W/2;CY=H/2+18;orbR=Math.min(W,H)*0.32;orbR=Math.max(230,Math.min(390,orbR));nodeR=orbR+55;canvas.width=Math.floor(W*devicePixelRatio);canvas.height=Math.floor(H*devicePixelRatio);canvas.style.width=W+'px';canvas.style.height=H+'px';ctx.setTransform(devicePixelRatio,0,0,devicePixelRatio,0,0);seedPositions();} addEventListener('resize',resize);
+const DUST=[];function rebuildDust(){DUST.length=0;const count=2600;for(let i=0;i<count;i++){const phi=Math.acos(1-2*(i+.5)/count),theta=Math.PI*(1+Math.sqrt(5))*i;const r=orbR*(.96+Math.random()*.08);DUST.push({x:r*Math.sin(phi)*Math.cos(theta),y:r*Math.sin(phi)*Math.sin(theta),z:r*Math.cos(phi),size:.45+Math.random()*1.35,hue:Math.random()});}}
+function seedPositions(){rebuildDust();NODES.forEach((n,i)=>{const phi=Math.acos(1-2*(i+.5)/NODES.length),theta=Math.PI*(1+Math.sqrt(5))*i;n.x0=nodeR*Math.sin(phi)*Math.cos(theta);n.y0=nodeR*Math.sin(phi)*Math.sin(theta);n.z0=nodeR*Math.cos(phi);});}
+function project(x,y,z){let x1=x*Math.cos(rotY)-z*Math.sin(rotY),z1=x*Math.sin(rotY)+z*Math.cos(rotY);let y2=y*Math.cos(rotX)-z1*Math.sin(rotX),z2=y*Math.sin(rotX)+z1*Math.cos(rotX);const fov=980,scale=fov/(fov+z2);return {sx:CX+x1*scale,sy:CY+y2*scale,z:z2,scale};}
+function visible(n){if(filter==='all')return true;if(filter==='fouls')return n.type==='player'||n.type==='team';if(filter==='5+')return n.type==='player'&&n.t>=5;if(filter==='flagrant')return n.type==='player'&&n.fl>0;if(filter==='ejected')return n.type==='player'&&n.ej>0;if(filter==='intl')return n.type==='country'||n.intl;if(filter==='uconn')return n.id==='COL-UConn'||(n.type==='player'&&n.col==='UConn');return n.type===filter;}
+function linkVisible(l){return filter==='all'||(visible(l.source)&&visible(l.target));}
+
+function makeNode(n){const el=document.createElement('div');el.className=`node ${n.type} ${n.type==='player'&&n.t>=5?'high':''} ${n.intl?'intl':''}`;el.dataset.id=n.id;let inner=''; if(n.type==='player'){inner=`<span class="node-initials core-fallback">${initials(n.n)}</span>${n.t?`<span class="badge ${n.sus?'sus-badge':''}">${n.t}T</span>`:''}`;} else if(n.type==='country'){inner=`<span class="core-fallback flag-fb">${n.flag||n.label}</span>`;} else {inner=`<span class="core-fallback">${initials(n.label||n.n)}</span>`;} const cstyle=(n.type!=='player'&&n.type!=='country')?` style="border-color:${n.color};box-shadow:0 0 22px ${n.color}55"`:''; const core=`<div class="node-core"${cstyle}>${inner}</div>`; el.innerHTML=core+`<div class="node-label">${n.label||n.n}</div>${n.type==='player'?`<div class="node-meta">${n.tm.split(' ').pop()} · ${n.col}</div>`:''}`;el.addEventListener('click',e=>{e.stopPropagation();showDrawer(n);});el.addEventListener('mouseenter',e=>{activeId=n.id;tt.classList.add('on');tt.innerHTML=`<b>${n.n}</b><small>${n.type}${n.type==='player'?` · ${n.t} techs · ${n.tm}`:''}</small>`});el.addEventListener('mousemove',e=>{tt.style.left=e.clientX+14+'px';tt.style.top=e.clientY-10+'px';});el.addEventListener('mouseleave',()=>{activeId=null;tt.classList.remove('on');});dom.appendChild(el);n.el=el;if(n.wikiImg)applyImg(n,n.wikiImg);}
+buildGraph(); NODES.forEach(makeNode); updateCounts();
+
+const FLAG_CDN={US:'us',FR:'fr',AU:'au',BS:'bs',CA:'ca'};
+function applyImg(n,src){n.wikiImg=src;const core=n.el&&n.el.querySelector('.node-core');if(!core)return;const contain=(n.type==='team'||n.type==='college');core.style.backgroundImage=`url('${src}')`;core.style.backgroundSize=contain?'78%':'cover';core.style.backgroundRepeat='no-repeat';core.style.backgroundPosition='center';if(contain)core.style.background=`rgba(255,255,255,.92) url('${src}') center/78% no-repeat`;const fb=core.querySelector('.core-fallback');if(fb)fb.style.opacity='0';core.classList.add('has-img');}
+function wikiQuery(n){if(n.type==='player')return n.n+' WNBA basketball';if(n.type==='coach')return n.n+' basketball coach';if(n.type==='team')return n.n+' WNBA team';if(n.type==='college'){const cd=COLL[n.n]||{};return (cd.label||n.n)+' college logo';}return n.n;}
+async function loadEntityImage(n){
+  if(n.type==='country'){const c=FLAG_CDN[n.code];if(c)applyImg(n,`https://flagcdn.com/w320/${c}.png`);return;}
+  try{const q=encodeURIComponent(wikiQuery(n));const url=`https://en.wikipedia.org/w/api.php?action=query&origin=*&generator=search&gsrsearch=${q}&gsrlimit=4&prop=pageimages&pithumbsize=512&format=json`;const r=await fetch(url);const data=await r.json();const pages=Object.values(data.query?.pages||{}).sort((a,b)=>(a.index||9)-(b.index||9));const page=pages.find(p=>p.thumbnail?.source);if(page)applyImg(n,page.thumbnail.source);}catch(e){}
+}
+async function loadWikiPortrait(n){return loadEntityImage(n);}
+function loadAllImages(){NODES.forEach((n,i)=>{setTimeout(()=>loadEntityImage(n), n.type==='country'?0:i*40);});}
+function loadPortraits(){loadAllImages();}
+function rebuild(){const wasActive=activeId;activeId=null;dom.innerHTML='';buildGraph();NODES.forEach(makeNode);updateCounts();seedPositions();loadPortraits();if(wasActive&&nodeMap.has(wasActive))activeId=wasActive;}
+loadPortraits();
+
+function draw(){if(!drag&&autoRotate){rotY+=AUTO_ROTATE_Y;rotX+=AUTO_ROTATE_X;}const base=ctx.createLinearGradient(0,0,0,H);base.addColorStop(0,'#ffffff');base.addColorStop(.58,'#f8fbff');base.addColorStop(1,'#eef6ff');ctx.fillStyle=base;ctx.fillRect(0,0,W,H);let cornerA=ctx.createRadialGradient(0,H,0,0,H,Math.max(W,H)*.55);cornerA.addColorStop(0,'rgba(125,209,244,.50)');cornerA.addColorStop(.38,'rgba(125,209,244,.16)');cornerA.addColorStop(1,'rgba(125,209,244,0)');ctx.fillStyle=cornerA;ctx.fillRect(0,0,W,H);let cornerB=ctx.createRadialGradient(W,H,0,W,H,Math.max(W,H)*.55);cornerB.addColorStop(0,'rgba(250,221,105,.50)');cornerB.addColorStop(.38,'rgba(250,221,105,.15)');cornerB.addColorStop(1,'rgba(250,221,105,0)');ctx.fillStyle=cornerB;ctx.fillRect(0,0,W,H);let bg=ctx.createRadialGradient(CX,CY,0,CX,CY,orbR*1.55);bg.addColorStop(0,'rgba(47,98,255,.10)');bg.addColorStop(.52,'rgba(143,213,255,.08)');bg.addColorStop(1,'rgba(255,255,255,0)');ctx.fillStyle=bg;ctx.fillRect(0,0,W,H);
+NODES.forEach(n=>Object.assign(n,project(n.x0,n.y0,n.z0)));
+ctx.save();LINKS.forEach(l=>{if(l.type==='foul'||filter==='fouls')return;if(!l.source||!l.target||!linkVisible(l))return;const front=(l.source.z+l.target.z)/2<nodeR*.42;const rel=activeId&&(l.a===activeId||l.b===activeId);let a=rel?(front?.95:.55):(front?.42:.14);if(activeId&&!rel)a*=.5;ctx.lineWidth=rel?1.9:1;ctx.strokeStyle=l.type==='team'?`rgba(47,98,255,${a})`:l.type==='college'?`rgba(244,197,87,${a})`:`rgba(34,167,216,${a})`;ctx.beginPath();ctx.moveTo(l.source.sx,l.source.sy);ctx.lineTo(l.target.sx,l.target.sy);ctx.stroke();});ctx.restore();
+ctx.save();foulDash=(foulDash+.5)%16;LINKS.forEach(l=>{if(l.type!=='foul'||!l.source||!l.target)return;const relevant=activeId&&(l.a===activeId||l.b===activeId);if(!relevant&&!linkVisible(l))return;if(!showFouls&&filter!=='fouls'&&!relevant)return;const front=(l.source.z+l.target.z)/2<nodeR*.42;let a=relevant?(front?.92:.46):(filter==='fouls'?(front?.62:.26):(front?.5:.2));if(activeId&&!relevant)a*=.55;ctx.setLineDash([5,8]);ctx.lineDashOffset=-foulDash;ctx.lineWidth=relevant?Math.min(3.6,1.3+(l.w||1)*.7):Math.min(2,.9+(l.w||1)*.3);ctx.strokeStyle=l.sus?`rgba(255,44,96,${a})`:`rgba(255,90,95,${a})`;if(relevant){ctx.shadowColor=l.sus?'rgba(255,44,96,.7)':'rgba(255,90,95,.65)';ctx.shadowBlur=9;}else{ctx.shadowBlur=0;}ctx.beginPath();ctx.moveTo(l.source.sx,l.source.sy);ctx.lineTo(l.target.sx,l.target.sy);ctx.stroke();});ctx.setLineDash([]);ctx.restore();
+DUST.forEach(d=>{const p=project(d.x,d.y,d.z);if(p.z>orbR*.92)return;let alpha=Math.max(.07,1-((p.z+orbR)/(orbR*2)));alpha*=.88;ctx.globalAlpha=alpha;ctx.fillStyle=d.hue>.92?'#f4c557':d.hue>.72?'#8fd5ff':'#2f62ff';ctx.beginPath();ctx.arc(p.sx,p.sy,d.size*p.scale,0,Math.PI*2);ctx.fill();});ctx.globalAlpha=1;
+NODES.forEach(n=>{const v=visible(n),front=n.z<nodeR*.52;if(!v||!front){n.el.style.opacity='0';n.el.style.pointerEvents='none';return;}const depthAlpha=Math.max(.16,Math.min(1,(nodeR*.54-n.z)/(nodeR*1.15)));const connected=activeId&&(n.id===activeId||LINKS.some(l=>(l.a===activeId&&l.b===n.id)||(l.b===activeId&&l.a===n.id)));n.el.style.opacity=activeId&&!connected?Math.min(.13,depthAlpha):depthAlpha;n.el.style.pointerEvents='auto';n.el.style.zIndex=String(Math.floor(2000-n.z));n.el.style.transform=`translate(-50%,-50%) translate3d(${n.sx}px,${n.sy}px,0) scale(${Math.max(.62,Math.min(1.25,n.scale))})`;});requestAnimationFrame(draw);}resize();draw();
+
+document.addEventListener('mousedown',e=>{drag=true;lastX=e.clientX;lastY=e.clientY});document.addEventListener('mousemove',e=>{if(!drag)return;rotY+=(e.clientX-lastX)*.005;rotX+=(e.clientY-lastY)*.005;lastX=e.clientX;lastY=e.clientY});document.addEventListener('mouseup',()=>drag=false);document.addEventListener('touchstart',e=>{drag=true;lastX=e.touches[0].clientX;lastY=e.touches[0].clientY},{passive:true});document.addEventListener('touchmove',e=>{if(!drag)return;rotY+=(e.touches[0].clientX-lastX)*.005;rotX+=(e.touches[0].clientY-lastY)*.005;lastX=e.touches[0].clientX;lastY=e.touches[0].clientY},{passive:true});document.addEventListener('touchend',()=>drag=false);
+document.querySelectorAll('.pill').forEach(b=>b.addEventListener('click',()=>{document.querySelectorAll('.pill').forEach(x=>x.classList.remove('on'));b.classList.add('on');filter=b.dataset.f;}));
+
+const bd=document.getElementById('bd'), drawer=document.getElementById('drawer'), drawerInner=document.getElementById('drawerInner');bd.addEventListener('click',hideDrawer);function hideDrawer(){drawer.classList.remove('show');setTimeout(()=>bd.classList.remove('show'),250);}window.hideDrawer=hideDrawer;
+function imgTag(n){if(!n.wikiImg)return '';const contain=(n.type==='team'||n.type==='college');return `<img src="${n.wikiImg}" alt="${n.n}" style="object-fit:${contain?'contain':'cover'};${contain?'background:#fff;padding:14%':''}">`;}function natName(c){return{US:'United States',AU:'Australia',FR:'France',BS:'Bahamas',CA:'Canada'}[c]||c}function playerById(id){return nodeMap.get(id)}
+function connChip(id,label,meta,color){return `<span class="conn-chip" data-id="${id}"><span class="dotty" style="background:${color||'var(--green)'}"></span>${label}${meta?` <span style="font-family:JetBrains Mono;color:var(--t4);font-size:10px">${meta}</span>`:''}</span>`}
+function openNodeFromDrawer(){drawerInner.querySelectorAll('.conn-chip').forEach(el=>el.onclick=()=>{const n=nodeMap.get(el.dataset.id);if(n)showDrawer(n);});}
+function showDrawer(n){let html=''; if(n.type==='player')html=drawerPlayer(n);else if(n.type==='team')html=drawerTeam(n);else if(n.type==='college')html=drawerCollege(n);else if(n.type==='country')html=drawerCountry(n);else if(n.type==='coach')html=drawerCoach(n);drawerInner.innerHTML=`<div class="handle"></div><div class="close" onclick="hideDrawer()">✕</div>${html}`;bd.classList.add('show');requestAnimationFrame(()=>drawer.classList.add('show'));setTimeout(openNodeFromDrawer,20);}
+function drawerPlayer(d){const team=nodeMap.get(`T-${slug(d.tm)}`),col=nodeMap.get(`COL-${slug(d.col)}`),ct=d.intl?nodeMap.get(`CT-${d.nat}`):null,collMates=P.filter(p=>p.col===d.col&&p.n!==d.n);return `<div class="grid"><div class="hero"><div class="photo">${imgTag(d)}<div class="photo-initials">${initials(d.n)}</div></div><div><div class="eyebrow">${d.intl?'International player':'Player'} ${d.fg||''}</div><div class="name">${d.n}</div></div><div class="chips">${d.sus?'<span class="chip sus">Suspended</span>':''}${d.t>=5?'<span class="chip green">Tech leader</span>':''}<span class="chip">${d.bt}</span><span class="chip">${d.tm}</span></div><div class="stats"><div class="stat"><div class="stat-k">Age</div><div class="stat-v">${d.age}</div></div><div class="stat"><div class="stat-k">Pos</div><div class="stat-v">${d.pos}</div></div><div class="stat"><div class="stat-k">Height</div><div class="stat-v">${d.h}</div></div></div></div><div class="col"><div class="card"><div class="kv"><div><b>Team</b>${d.tm}</div><div><b>College / Origin</b>${d.col}</div><div><b>Draft</b>${d.dr}</div><div><b>Nationality</b>${d.fg||'🇺🇸'} ${natName(d.nat)}</div><div><b>Jersey</b>${d.j}</div><div><b>Games Played</b>${d.gp}</div></div></div><div class="row"><div class="card"><div class="card-title">Behavior Profile</div><div class="metric-grid"><div class="metric"><div class="big" style="color:var(--tech)">${d.t}</div><span>Techs</span></div><div class="metric"><div class="big" style="color:var(--flag)">${d.fl}</div><span>Flagrants</span></div><div class="metric"><div class="big" style="color:var(--eject)">${d.ej}</div><span>Ejections</span></div></div></div><div class="card"><div class="card-title">Rates</div><div class="metric-grid"><div class="metric"><div class="big" style="font-size:20px">${d.tr?.toFixed?d.tr.toFixed(3):d.tr}</div><span>Tech/Game</span></div><div class="metric"><div class="big" style="font-size:20px">${d.vi}</div><span>Volatility</span></div><div class="metric"><div class="big" style="font-size:20px">${d.t+d.fl+d.ej}</div><span>Events</span></div></div></div></div><div class="card"><div class="card-title">Quote / Callout</div><div class="prose">“${d.quote}”</div></div><div class="card"><div class="card-title">Key Insight</div><div class="prose">${d.ins}</div></div><div class="card"><div class="card-title">Bio</div><div class="prose">${d.bio}</div></div>${d.tl?`<div class="card"><div class="card-title">Incident Timeline</div><div class="timeline">${d.tl.map((x,i)=>`<div class="tl"><span class="tl-num">#${i+1}</span><span class="tl-date">${x.d}</span><span>vs ${x.o}</span>${x.x?`<span class="tl-tag">${x.x}</span>`:'<span></span>'}</div>`).join('')}</div></div>`:''}<div class="card"><div class="card-title">Connected To</div><div class="conn">${team?connChip(team.id,team.n,team.t+'T',team.color):''}${col?connChip(col.id,col.n,col.pc+' players','var(--gold)'):''}${ct?connChip(ct.id,(ct.flag||'')+' '+ct.n,ct.t+' players','var(--intl)'):''}${collMates.map(p=>connChip(`P-${slug(p.n)}`,p.n,p.t+'T · '+p.tm.split(' ').pop(),p.intl?'var(--intl)':'var(--green)')).join('')}</div></div></div></div>`;}
+function drawerTeam(d){const players=P.filter(p=>p.tm===d.n).sort((a,b)=>b.t-a.t), coaches=CO.filter(c=>c.tm===d.n);return `<div class="grid"><div class="hero"><div class="photo">${imgTag(d)}<div class="photo-initials">${initials(d.n)}</div></div><div><div class="eyebrow">Team</div><div class="name">${d.n}</div></div><div class="chips"><span class="chip green">${d.t} combined techs</span><span class="chip">${d.pc} players</span><span class="chip">${d.cc} coach${d.cc!==1?'es':''}</span></div></div><div class="col"><div class="card"><div class="card-title">Roster + Sideline Records</div><div class="conn">${players.map(p=>connChip(`P-${slug(p.n)}`,p.n,p.t+'T · '+p.col,p.intl?'var(--intl)':'var(--green)')).join('')}${coaches.map(c=>connChip(`C-${slug(c.n)}`,c.n,c.t+'T · HC','var(--violet)')).join('')}</div></div></div></div>`;}
+function drawerCollege(d){const cd=COLL[d.n]||{}, players=P.filter(p=>p.col===d.n).sort((a,b)=>b.t-a.t);return `<div class="grid"><div class="hero"><div class="photo">${imgTag(d)}<div class="photo-initials">${cd.ab||initials(d.n)}</div></div><div><div class="eyebrow">College / Origin</div><div class="name">${d.n}</div></div><div class="chips"><span class="chip green">${players.length} players</span><span class="chip">${d.t} combined techs</span></div></div><div class="col"><div class="card"><div class="card-title">Connected Players</div><div class="conn">${players.map(p=>connChip(`P-${slug(p.n)}`,p.n,p.t+'T · '+p.tm.split(' ').pop(),p.intl?'var(--intl)':'var(--green)')).join('')}</div></div></div></div>`;}
+function drawerCountry(d){const players=P.filter(p=>p.nat===d.code).sort((a,b)=>b.t-a.t);return `<div class="grid"><div class="hero"><div class="photo">${imgTag(d)}<div class="photo-initials">${d.flag||d.code}</div></div><div><div class="eyebrow">Country</div><div class="name">${d.n}</div></div><div class="chips"><span class="chip green">${players.length} player${players.length!==1?'s':''}</span></div></div><div class="col"><div class="card"><div class="card-title">International Players</div><div class="conn">${players.map(p=>connChip(`P-${slug(p.n)}`,p.n,p.t+'T · '+p.tm.split(' ').pop(),'var(--intl)')).join('')}</div></div></div></div>`;}
+function drawerCoach(d){const team=nodeMap.get(`T-${slug(d.tm)}`);return `<div class="grid"><div class="hero"><div class="photo">${imgTag(d)}<div class="photo-initials">${initials(d.n)}</div></div><div><div class="eyebrow">Head Coach</div><div class="name">${d.n}</div></div><div class="chips"><span class="chip green">${d.t} technical${d.t!==1?'s':''}</span><span class="chip">${d.tm}</span></div></div><div class="col"><div class="card"><div class="card-title">Bio</div><div class="prose">${d.bio}</div></div><div class="card"><div class="card-title">Connected Team</div><div class="conn">${team?connChip(team.id,team.n,team.t+'T',team.color):''}</div></div></div></div>`;}
+/* ===== Motion + foul-line toggles ===== */
+(function(){const mt=document.getElementById('motionToggle');if(mt){mt.addEventListener('click',()=>{autoRotate=!autoRotate;mt.querySelector('.sw').classList.toggle('on',autoRotate);});mt.addEventListener('mousedown',e=>e.stopPropagation());}
+const ft=document.getElementById('foulToggle');if(ft){ft.addEventListener('click',()=>{showFouls=!showFouls;ft.querySelector('.sw').classList.toggle('on',showFouls);});ft.addEventListener('mousedown',e=>e.stopPropagation());}})();
+
+/* ===== Data Studio ===== */
+const studio=document.getElementById('studio'),studioFab=document.getElementById('studioFab');
+const esc=s=>String(s==null?'':s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');
+const NUMF=new Set(['t','fl','ej','gp','age','j','vi']);
+function setField(p,k,v){if(NUMF.has(k))p[k]=v===''?0:(+v||0);else if(k==='tr')p[k]=v===''?0:(parseFloat(v)||0);else p[k]=v;}
+const teamOpts=()=>[...new Set(P.map(p=>p.tm).filter(Boolean))];
+function fillLists(){document.getElementById('teamList').innerHTML=teamOpts().map(t=>`<option value="${esc(t)}">`).join('');document.getElementById('recipList').innerHTML=[...teamOpts(),...P.map(p=>p.n)].filter(Boolean).map(t=>`<option value="${esc(t)}">`).join('');}
+
+function renderForm(){
+  const wrap=document.getElementById('peList');wrap.innerHTML='';
+  P.forEach((p,idx)=>{
+    const d=document.createElement('details');d.className='pe';
+    d.innerHTML=`<summary><span class="pe-name">${esc(p.n)||'(unnamed)'}</span><span class="pe-sum">${esc(p.tm)} · ${(+p.t||0)}T</span></summary>
+      <div class="pe-body">
+        <label>Name<input data-k="n" type="text" value="${esc(p.n)}"></label>
+        <label>Team<input data-k="tm" type="text" list="teamList" value="${esc(p.tm)}"></label>
+        <div class="pe-grid">
+          <label>Techs<input data-k="t" type="number" value="${+p.t||0}"></label>
+          <label>Flagrant<input data-k="fl" type="number" value="${+p.fl||0}"></label>
+          <label>Eject<input data-k="ej" type="number" value="${+p.ej||0}"></label>
+          <label>GP<input data-k="gp" type="number" value="${+p.gp||0}"></label>
+        </div>
+        <div class="pe-grid" style="grid-template-columns:1.4fr .7fr .9fr 1fr">
+          <label>College / Origin<input data-k="col" type="text" value="${esc(p.col)}"></label>
+          <label>Nat<input data-k="nat" type="text" value="${esc(p.nat)}"></label>
+          <label>Pos<input data-k="pos" type="text" value="${esc(p.pos)}"></label>
+          <label class="pe-chk"><input data-k="sus" type="checkbox" ${p.sus?'checked':''}>Suspended</label>
+        </div>
+        <div class="pe-inc">
+          <div class="pe-inc-h">Incidents <span>recipient = team or player → foul line</span></div>
+          <div class="inc-list"></div>
+          <button class="mini addInc">+ incident</button>
+        </div>
+        <button class="mini danger delP">Delete player</button>
+      </div>`;
+    d.querySelectorAll('[data-k]').forEach(inp=>{const k=inp.dataset.k;inp.addEventListener('input',()=>{if(inp.type==='checkbox')p[k]=inp.checked;else setField(p,k,inp.value);if(k==='n'||k==='tm'||k==='t'){d.querySelector('.pe-name').textContent=p.n||'(unnamed)';d.querySelector('.pe-sum').textContent=`${p.tm||''} · ${(+p.t||0)}T`;}});});
+    const incList=d.querySelector('.inc-list');
+    function renderInc(){incList.innerHTML='';(p.tl||[]).forEach((ev,i)=>{const row=document.createElement('div');row.className='inc';row.innerHTML=`<input class="inc-d" placeholder="date" value="${esc(ev.d)}"><input class="inc-o" list="recipList" placeholder="recipient (team / player)" value="${esc(ev.p||ev.o)}"><input class="inc-x" placeholder="tag" value="${esc(ev.x)}"><button class="inc-del" title="remove">✕</button>`;row.querySelector('.inc-d').addEventListener('input',e=>ev.d=e.target.value);row.querySelector('.inc-o').addEventListener('input',e=>ev.o=e.target.value);row.querySelector('.inc-x').addEventListener('input',e=>ev.x=e.target.value);row.querySelector('.inc-del').addEventListener('click',()=>{p.tl.splice(i,1);renderInc();});incList.appendChild(row);});}
+    renderInc();
+    d.querySelector('.addInc').addEventListener('click',()=>{if(!Array.isArray(p.tl))p.tl=[];p.tl.push({d:'',o:''});renderInc();});
+    d.querySelector('.delP').addEventListener('click',()=>{if(confirm('Delete '+(p.n||'this player')+'?')){P.splice(idx,1);renderForm();}});
+    wrap.appendChild(d);
+  });
+  fillLists();
+}
+function syncJSON(){document.getElementById('jsonArea').value=JSON.stringify({P,CO},null,2);}
+function applyFromJSON(){const ta=document.getElementById('jsonArea'),err=document.getElementById('jsonErr');try{const o=JSON.parse(ta.value);if(!Array.isArray(o.P))throw new Error('JSON needs a "P" array of players');P=o.P;if(Array.isArray(o.CO))CO=o.CO;err.textContent='';renderForm();rebuild();saveData();}catch(e){err.textContent='⚠ '+e.message;}}
+
+document.querySelectorAll('.stab').forEach(b=>b.addEventListener('click',()=>{document.querySelectorAll('.stab').forEach(x=>x.classList.remove('on'));b.classList.add('on');const t=b.dataset.tab;document.querySelector('.tab-form').hidden=t!=='form';document.querySelector('.tab-json').hidden=t!=='json';if(t==='json')syncJSON();else renderForm();}));
+document.getElementById('applyData').addEventListener('click',()=>{if(!document.querySelector('.tab-json').hidden)applyFromJSON();else{rebuild();saveData();}});
+document.getElementById('addPlayer').addEventListener('click',()=>{P.unshift({n:'New Player',tm:teamOpts()[0]||'Chicago Sky',t:0,fl:0,ej:0,gp:0,bt:'',age:0,nat:'US',col:'',pos:'',h:'',j:0,dr:'',tr:0,vi:0,quote:'',bio:'',ins:'',tl:[]});renderForm();const first=document.querySelector('.pe');if(first)first.open=true;});
+document.getElementById('resetData').addEventListener('click',()=>{if(confirm('Reset to the original dataset? Your edits will be lost.')){P=clone(DEFAULT_P);CO=clone(DEFAULT_CO);try{localStorage.removeItem('lato_data_v1');}catch(e){}renderForm();rebuild();}});
+document.getElementById('exportData').addEventListener('click',()=>{const blob=new Blob([JSON.stringify({P,CO},null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='lato-data.json';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1500);});
+document.getElementById('studioClose').addEventListener('click',()=>studio.classList.remove('show'));
+studioFab.addEventListener('click',()=>{if(studio.classList.contains('show')){studio.classList.remove('show');}else{renderForm();studio.classList.add('show');}});
+[studio,studioFab].forEach(el=>['mousedown','touchstart','wheel'].forEach(ev=>el.addEventListener(ev,e=>e.stopPropagation(),{passive:true})));
+</script>
+</body>
+</html>
