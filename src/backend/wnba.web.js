@@ -11,6 +11,7 @@
  *************************************************************/
 
 import { Permissions, webMethod } from 'wix-web-module';
+import wixData from 'wix-data';
 import { cacheRead, apiScoreboard, apiScoreboardWindow, getJson, LEAGUES, TTL, SITE_API, isLeague } from 'backend/wnbaCore';
 
 /* ============================================================
@@ -181,6 +182,20 @@ export const getGameSummary = webMethod(Permissions.Anyone, async (league, gameI
         }))
     };
   });
+});
+
+/**
+ * Per-player season + career averages, from the WnbaPlayerStats collection
+ * (kept fresh by the hourly job). Sorted by scoring by default.
+ * @param {string} league
+ * @param {string} [teamId]  omit for all synced teams
+ */
+export const getPlayerStats = webMethod(Permissions.Anyone, async (league = 'wnba', teamId) => {
+  if (!isLeague(league)) throw new Error(`Unsupported league: ${league}`);
+  let q = wixData.query('WnbaPlayerStats').eq('league', league).descending('pts').limit(100);
+  if (teamId) q = q.eq('teamId', String(teamId));
+  const res = await q.find();
+  return { league, teamId: teamId ? String(teamId) : null, count: res.items.length, players: res.items };
 });
 
 /** Leagues this site serves. Drives nav and filters. */

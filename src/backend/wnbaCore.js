@@ -296,6 +296,97 @@ export async function syncGamesToCollection(league = 'wnba') {
   return `${league}:games synced ${toSave.length} (removed ${stale.length})`;
 }
 
+/* ============================================================
+   5. PLAYER STATS SYNC
+   Per-player season + career averages, mirrored into the
+   WnbaPlayerStats collection (public read, unique _id per
+   player) so player pages can be dataset-bound and therefore
+   server-rendered — same indexability reasoning as WnbaGames.
+   ============================================================ */
+
+// ESPN's athlete-overview endpoint (different host from the scoreboard API,
+// same no-User-Agent rule). Returns labeled Regular Season + Career splits.
+const OVERVIEW_API = 'https://site.web.api.espn.com/apis/common/v3/sports';
+const PLAYERS_COLLECTION = 'WnbaPlayerStats';
+
+// Teams whose rosters get per-player stat sync. Add a team here and the next
+// job run populates it — nothing else to change.
+export const STAT_TEAMS = {
+  wnba: [
+    { id: '20', abbr: 'ATL', name: 'Atlanta Dream' }
+  ]
+};
+
+// overview `names` -> our collection field keys (career_ prefix for the
+// Career split). Percentages arrive as 0–100, not 0–1.
+const STAT_FIELDS = {
+  gamesPlayed: 'gp',       avgMinutes: 'minutes',  avgPoints: 'pts',
+  avgRebounds: 'reb',      avgAssists: 'ast',      avgSteals: 'stl',
+  avgBlocks: 'blk',        avgTurnovers: 'turnovers',
+  fieldGoalPct: 'fgPct',   threePointPct: 'threePct',
+  freeThrowPct: 'ftPct',   avgFouls: 'pf'
+};
+
+export async function syncPlayerStatsForTeam(league, team) {
+  const lg = LEAGUES[league];
+  const rosterData = await getJson(`${SITE_API}/${lg.path}/teams/${team.id}/roster`);
+  const ath = rosterData.athletes || [];
+  const players = (ath[0] && Array.isArray(ath[0].items))
+    ? ath.reduce((acc, g) => acc.concat(g.items || []), [])
+    : ath;
+
+  const rows = [];
+  for (const a of players) {
+    let stats = null;
+    try {
+      const ov = await getJson(`${OVERVIEW_API}/${lg.path}/athletes/${a.id}/overview`);
+      stats = ov.statistics || null;
+    } catch (err) {
+      // A player with no stats yet (rookie preseason) still gets a row.
+      console.warn(`[playerStats] overview failed ${a.id} ${a.fullName}: ${err.message}`);
+    }
+
+    const row = {
+      _id: `${league}:${a.id}`,           // deterministic — bulkSave updates in place
+      league,
+      playerId: String(a.id),
+      name: a.fullName || a.displayName || '',
+      jersey: a.jersey || '',
+      position: (a.position && a.position.abbreviation) || '',
+      headshot: (a.headshot && a.headshot.href) || '',
+      teamId: team.id, teamAbbr: team.abbr, teamName: team.name,
+      seasonLabel: ''
+    };
+
+    if (stats && Array.isArray(stats.names)) {
+      const splits = {};
+      for (const s of stats.splits || []) splits[s.displayName] = s.stats;
+      for (const [splitName, prefix] of [['Regular Season', ''], ['Career', 'career_']]) {
+        const vals = splits[splitName];
+        if (vals && vals.length === stats.names.length) {
+          stats.names.forEach((n, i) => {
+            const f = STAT_FIELDS[n];
+            if (f) row[prefix + f] = Number(vals[i]) || 0;
+          });
+          if (!prefix) row.seasonLabel = 'Regular Season';
+        }
+      }
+    }
+    rows.push(row);
+  }
+
+  if (rows.length) await wixData.bulkSave(PLAYERS_COLLECTION, rows, DB);
+
+  // Drop players no longer on this team's roster (trades, waivers).
+  const existing = await wixData.query(PLAYERS_COLLECTION)
+    .eq('league', league).eq('teamId', team.id).limit(1000).find(DB);
+  const liveIds = new Set(rows.map(r => r._id));
+  const gone = existing.items.filter(i => !liveIds.has(i._id));
+  if (gone.length) await wixData.bulkRemove(PLAYERS_COLLECTION, gone.map(i => i._id), DB);
+
+  return `${league}:${team.abbr} players synced ${rows.length} (removed ${gone.length})`;
+}
+
 export async function refreshReferenceData() {
   const log = [];
 
@@ -312,6 +403,14 @@ export async function refreshReferenceData() {
       log.push(await syncGamesToCollection(league));
     } catch (err) {
       log.push(`${league}:games FAILED ${err.message}`);
+    }
+
+    for (const team of STAT_TEAMS[league] || []) {
+      try {
+        log.push(await syncPlayerStatsForTeam(league, team));
+      } catch (err) {
+        log.push(`${league}:${team.abbr} players FAILED ${err.message}`);
+      }
     }
   }
 
