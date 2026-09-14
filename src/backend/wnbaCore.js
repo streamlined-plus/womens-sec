@@ -166,7 +166,13 @@ export async function apiScoreboard(leagueKey, datesParam) {
    Runs with NO current member: never call wix-members here.
    ============================================================ */
 
-const ACTIVE_LEAGUES = ['wnba'];
+// Leagues the hourly job keeps fresh. Rows carry a `league` field, so each
+// league's page filters its own dataset (the /schedule dataset filters
+// league = wnba and never shows NWSL rows).
+// NCAAW is deliberately NOT here: ESPN's college endpoint rejects date-range
+// queries (404, verified live) and full-D1 volume needs its own sync strategy
+// — likely an SEC-only conference filter. Do not add 'ncaaw' without that.
+const ACTIVE_LEAGUES = ['wnba', 'nwsl'];
 const GAMES_COLLECTION = 'WnbaGames';
 const SYNC_DAYS = 30;
 
